@@ -10,6 +10,7 @@ import shutil
 import re
 import base64
 from json import JSONDecodeError
+from slugify import slugify
 
 def getJSON(theurl):
 	rawjson = ""
@@ -42,6 +43,7 @@ def genXML(character):
 	level = 0
 	characterXML = "\t<player>\n"
 	characterXML += "\t\t<name>{}</name>\n".format(character["name"])
+	characterXML += "\t\t<ddb>{}</ddb>\n".format(character["id"])
 	#characterXML += "\t\t<slug>ddb-{}</slug>\n".format(character["id"])
 	if len(character["classes"]) > 1:
 		allclasses = []
@@ -321,6 +323,7 @@ def genXML(character):
 	party = ""
 	if "campaign" in character and character["campaign"] is not None:
 		party = character["campaign"]["name"]
+		characterXML += "\t\t<campaign ref=\"{}\"></campaign>\n".format(slugify(character["campaign"]["name"]))
 	background = ""
 	if "background" in character and character["background"] is not None and character["background"]["definition"] is not None:
 		background = character["background"]["definition"]["name"]
