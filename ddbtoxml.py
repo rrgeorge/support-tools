@@ -9,6 +9,9 @@ import tempfile
 import shutil
 import re
 import base64
+import argparse
+import xml.etree.cElementTree as ET
+
 from json import JSONDecodeError
 from slugify import slugify
 
@@ -39,24 +42,29 @@ def getJSON(theurl):
 		print ("This is not a url for D&D Beyond: {}".format(theurl))
 		return
 
-def genXML(character):	
+def genXML(character,compendium):	
 	level = 0
-	characterXML = "\t<player>\n"
-	characterXML += "\t\t<name>{}</name>\n".format(character["name"])
-	characterXML += "\t\t<ddb>{}</ddb>\n".format(character["id"])
-	#characterXML += "\t\t<slug>ddb-{}</slug>\n".format(character["id"])
+	player = ET.SubElement(compendium, 'player')
+	name = ET.SubElement(player, 'name')
+	name.text = "{}".format(character["name"])
+	ddb = ET.SubElement(player, 'ddb')
+	ddb.text = "{}".format(character["id"])
 	if len(character["classes"]) > 1:
 		allclasses = []
 		for cclass in character["classes"]:
 			level += cclass["level"]
 			allclasses.append("{} {}".format(cclass["definition"]["name"],cclass["level"]))
-		characterXML += "\t\t<class>{}</class>\n".format('/'.join(allclasses))
+			cclass = ET.SubElement(player, 'class')
+			cclass.text = '/'.join(allclasses)
 	else:
 		characterclass = character["classes"][0]["definition"]["name"]
 		level = character["classes"][0]["level"]
-		characterXML += "\t\t<class>{}</class>\n".format(characterclass)
-	characterXML += "\t\t<level>{}</level>\n".format(level)
-	characterXML += "\t\t<xp>{}</xp>\n".format(character["currentXp"])
+		cclass = ET.SubElement(player, 'class')
+		cclass.text = "{}".format(characterclass)
+	clevel = ET.SubElement(player, 'level')
+	clevel.text = "{}".format(level)
+	xp = ET.SubElement(player, 'xp')
+	xp.text = "{}".format(character["currentXp"])
 	hitpoints = character["baseHitPoints"]
 	armorclass = 0
 	stat_str = character["stats"][0]["value"]
@@ -94,10 +102,31 @@ def genXML(character):
 #			equipment.append("{} (x{:d})".format(equip["definition"]["name"],equip["quantity"]))
 #		else:
 #			equipment.append(equip["definition"]["name"])
-		if "armor" in equip["definition"]["type"].lower() and "armor" not in equip["definition"]["name"].lower():
-			equipment.append(equip["definition"]["name"] + " Armor")
+		equipname = equip["definition"]["name"]
+		if equipname == "Ball Bearings (bag of 1,000)":
+			equipname = "Ball Bearings"
+		if ', ' in equipname:
+			equipparts = equipname.split(', ',1)
+			if equipparts[1].startswith('+'):
+				if equipparts[0].lower().endswith("leather") or equipparts[0].lower().endswith("padded") or equipparts[0].lower().endswith("plate") or equipparts[0].lower().endswith("hide"):
+					equipparts[0] += " Armor"
+				equipname = equipparts[0] + " " + equipparts[1]
+			else:
+				if equipparts[1].endswith(" (50 feet)"):
+					equipname = equipparts[1][:-10] + " " + equipparts[0] + " (50 feet)"
+				else:
+					equipname = equipparts[1] + " " + equipparts[0]
+		m = re.search(r'Potion of Healing \((.*?)\)',equipname)
+		if m:
+			equipname = "Potion of {} Healing".format(m.group(1))
+		equipname = re.sub(r'(Arrow|Bolt|Needle|Bullet)s(.*)(?<!\([0-9]{2}\))$',r'\1\2',equipname)
+		if "armor" in equip["definition"]["type"].lower():
+			if equipname.lower().endswith("leather") or equipname.lower().endswith("padded") or equipname.lower().endswith("plate") or equipname.lower().endswith("hide"):
+				equipment.append(equipname + " Armor")
+			else:
+				equipment.append(equipname)
 		else:
-			equipment.append(equip["definition"]["name"])
+			equipment.append(equipname)
 		if equip["equipped"] == True and "armorClass" in equip["definition"]:
 			armorclass += equip["definition"]["armorClass"]
 	if armorclass == 0:
@@ -301,7 +330,19 @@ def genXML(character):
 			armorclass -= math.floor((stat_dex - 10)/2)
 		if modifier["type"].lower() == "set-base" and modifier["subType"].lower() == "darkvision":
 			senses.append("{} {} ft.".format(modifier["subType"].lower(),modifier["value"]))
-			light = "\t\t<light id=\"{}\">\n\t\t\t<enabled>YES</enabled>\n\t\t\t<radiusMin>0</radiusMin>\n\t\t\t<radiusMax>{}</radiusMax>\n\t\t\t<color>#ffffff</color>\n\t\t\t<opacity>0.5</opacity>\n\t\t\t<alwaysVisible>YES</alwaysVisible>\n\t\t</light>\n".format(uuid.uuid4(),modifier["value"])
+			light = ET.SubElement(player, 'light', {"id": str(uuid.uuid4()) } )
+			enabled = ET.SubElement(light, 'enabled')
+			enabled.text = "YES"
+			radiusmin = ET.SubElement(light, 'radiusMin')
+			radiusmin = "0"
+			radiusmax = ET.SubElement(light, 'radiusMax')
+			radiusmax = str(modifier["value"])
+			color = ET.SubElement(light, 'color')
+			color.text = "#ffffff"
+			opacity = ET.SubElement(light, 'opacity')
+			opacity.text = "0.5"
+			visible = ET.SubElement(light, 'alwaysVisible')
+			visible.text = "YES"
 		if modifier["type"].lower() == "language":
 			languages.append(modifier["friendlySubtypeName"])
 		if modifier["type"].lower() == "resistance":
@@ -323,7 +364,7 @@ def genXML(character):
 	party = ""
 	if "campaign" in character and character["campaign"] is not None:
 		party = character["campaign"]["name"]
-		characterXML += "\t\t<campaign ref=\"{}\"></campaign>\n".format(slugify(character["campaign"]["name"]))
+		campaign = ET.SubElement(player, 'campaign', { "ref": slugify(character["campaign"]["name"]) })
 	background = ""
 	if "background" in character and character["background"] is not None and character["background"]["definition"] is not None:
 		background = character["background"]["definition"]["name"]
@@ -339,43 +380,72 @@ def genXML(character):
 	appearance = character["traits"]["appearance"]
 	if appearance is None:
 		appearance = ""
-	characterXML += "\t\t<race>{}</race>\n".format(race)
-	characterXML += "\t\t<initiative>{}</initiative>\n".format(initiative)
-	characterXML += "\t\t<ac>{}</ac>\n".format(armorclass)
-	characterXML += "\t\t<hp>{}</hp>\n".format(hitpoints)
-	characterXML += "\t\t<speed>{}</speed>\n".format(speed)
-	characterXML += "\t\t<str>{}</str>\n".format(stat_str)
-	characterXML += "\t\t<dex>{}</dex>\n".format(stat_dex)
-	characterXML += "\t\t<con>{}</con>\n".format(stat_con)
-	characterXML += "\t\t<int>{}</int>\n".format(stat_int)
-	characterXML += "\t\t<wis>{}</wis>\n".format(stat_wis)
-	characterXML += "\t\t<cha>{}</cha>\n".format(stat_cha)
-	characterXML += "\t\t<descr>{}\n&lt;i&gt;&lt;a href=&quot;https://www.dndbeyond.com/profile/username/characters/{}&quot;&gt;Imported from D&amp;D Beyond&lt;/a&gt;&lt;/i&gt;</descr>\n".format(appearance,character["id"])
-	characterXML += "\t\t<party>{}</party>\n".format(party)
-	characterXML += "\t\t<faction>{}</faction>\n".format("")
-	characterXML += "\t\t<passive>{}</passive>\n".format(skill["Perception"]+10)
-	characterXML += "\t\t<spells>{}</spells>\n".format(", ".join(spells))
-	characterXML += "\t\t<senses>{}</senses>\n".format(", ".join(senses))
-	characterXML += "\t\t<languages>{}</languages>\n".format(", ".join(languages))
-	characterXML += "\t\t<equipment>{}</equipment>\n".format(", ".join(equipment))
-	characterXML += "\t\t<image>{}</image>\n".format(character["avatarUrl"].split('/')[-1])
-	characterXML += "\t\t<personality>{}</personality>\n".format(personality)
-	characterXML += "\t\t<ideals>{}</ideals>\n".format(ideals)
-	characterXML += "\t\t<bonds>{}</bonds>\n".format(bonds)
-	characterXML += "\t\t<flaws>{}</flaws>\n".format(flaws)
+	racec = ET.SubElement(player, 'race')
+	racec.text = "{}".format(race)
+	initiativec = ET.SubElement(player, 'initiative')
+	initiativec.text = "{}".format(initiative)
+	ac = ET.SubElement(player, 'ac')
+	ac.text = "{}".format(armorclass)
+	hp = ET.SubElement(player, 'hp')
+	hp.text = "{}".format(hitpoints)
+	speedc = ET.SubElement(player, 'speed')
+	speedc.text = "{}".format(speed)
+	strs = ET.SubElement(player, 'str')
+	strs.text = "{}".format(stat_str)
+	dex = ET.SubElement(player, 'dex')
+	dex.text = "{}".format(stat_dex)
+	con = ET.SubElement(player, 'con')
+	con.text = "{}".format(stat_con)
+	ints = ET.SubElement(player, 'int')
+	ints.text = "{}".format(stat_int)
+	wis = ET.SubElement(player, 'wis')
+	wis.text = "{}".format(stat_wis)
+	cha = ET.SubElement(player, 'cha')
+	cha.text = "{}".format(stat_cha)
+	descr = ET.SubElement(player, 'descr')
+	descr.text = "{}\n<i><a href=\"https://www.dndbeyond.com/profile/username/characters/{}\">Imported from D&amp;D Beyond</a></i>".format(appearance,character["id"])
+	partyc = ET.SubElement(player, 'party')
+	partyc.text = "{}".format(party)
+	faction = ET.SubElement(player, 'faction')
+	faction.text = "{}".format("")
+	passive = ET.SubElement(player, 'passive')
+	passive.text = "{}".format(skill["Perception"]+10)
+	spellsc = ET.SubElement(player, 'spells')
+	spellsc.text = ", ".join(spells)
+	sensesc = ET.SubElement(player, 'senses')
+	sensesc.text = ", ".join(senses)
+	languagesc = ET.SubElement(player, 'languages')
+	languagesc.text = ", ".join(languages)
+	equipmentc = ET.SubElement(player, 'equipment')
+	equipmentc.text = ", ".join(equipment)
+	if character["avatarUrl"] != "":
+		image = ET.SubElement(player, 'image')
+		image.text = character["avatarUrl"].split('/')[-1]
+	personalityc = ET.SubElement(player, 'personality')
+	personalityc.text = "{}".format(personality)
+	idealsc = ET.SubElement(player, 'ideals')
+	idealsc.text = "{}".format(ideals)
+	bondsc = ET.SubElement(player, 'bonds')
+	bondsc.text = "{}".format(bonds)
+	flawsc = ET.SubElement(player, 'flaws')
+	flawsc.text = "{}".format(flaws)
 	skills = []
 	for sk in sorted(skill.keys()):
 		skills.append("{} {:+d}".format(sk,skill[sk]))
-	characterXML += "\t\t<skill>{}</skill>\n".format(", ".join(skills))
-	characterXML += "\t\t<save>Str {:+d}, Dex {:+d}, Con {:+d}, Int {:+d}, Wis {:+d}, Cha {:+d}</save>\n".format(str_save,dex_save,con_save,int_save,wis_save,cha_save)
-	characterXML += "\t\t<resist>{}</resist>\n".format(", ".join(resistence))
-	characterXML += "\t\t<immune>{}</immune>\n".format(", ".join(immunity))
-	characterXML += "\t\t<background>{}</background>\n".format(background)
-	characterXML += "\t\t<feats>{}</feats>\n".format(", ".join(feats))
-	if light != "":
-		characterXML += light
-	characterXML += "\t</player>\n"
-	return characterXML
+	skill = ET.SubElement(player, 'skill')
+	skill.text = "{}".format(", ".join(skills))
+
+	save = ET.SubElement(player, 'save')
+	save.text = "Str {:+d}, Dex {:+d}, Con {:+d}, Int {:+d}, Wis {:+d}, Cha {:+d}".format(str_save,dex_save,con_save,int_save,wis_save,cha_save)
+	resist = ET.SubElement(player, 'resist')
+	resist.text = ", ".join(resistence)
+	immune = ET.SubElement(player, 'immune')
+	immune.text = ", ".join(immunity)
+	backgroundc = ET.SubElement(player, 'background')
+	backgroundc.text = "{}".format(background)
+	featsc = ET.SubElement(player, 'feats')
+	featsc.text = ", ".join(feats)
+	return
 
 def findURLS(fp):
 	fp.seek(0, 0)
@@ -392,54 +462,69 @@ def findURLS(fp):
 	return characters
 
 def main():
+	parser = argparse.ArgumentParser(
+	description="Converts D&D Beyond characters to an Encounter+ compendium file")
+	parser.add_argument('characterurls', nargs="*", type=str, help="D&D Beyond Character URL or JSON file")
+	parser.add_argument('--campaign',dest="campaign",action='store', default=None, nargs=1,help="Load all characters that share a campaign with this one (takes a URL or a JSON file)")
+	parser.add_argument('--campaign-file',dest="campaignfile",action='store', default=None, nargs=1,help="Load all characters that are found in a campaign html file")
+	args = parser.parse_args()	
+
 	tempdir = tempfile.mkdtemp(prefix="ddbtoxml_")
 	comependiumxml = os.path.join(tempdir, "compendium.xml")
 	playersdir = os.path.join(tempdir, "players")
 	os.mkdir(playersdir)
-	with open(comependiumxml,mode='a',encoding='utf-8') as comependium:
-		comependium.write("<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?>\n<compendium>\n")
-	args = sys.argv
-	if len(args) == 2 and args[1].startswith("--campaign"):
-		regex = re.compile("<a[^>]*href=\"(/profile/.*/[0-9]+)\"[^>]*class=\"ddb-campaigns-character-card-header-upper-details-link\"[^>]*>")
-		if args[1] == "--campaign":
-			readin = sys.stdin
-		elif os.path.isfile(args[1][11:]):
-			readin = open(args[1][11:],'r')
+	#with open(comependiumxml,mode='a',encoding='utf-8') as comependium:
+	#	comependium.write("<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?>\n<compendium>\n")
+	compendium = ET.Element('compendium')
+	if args.campaign:
+		if os.path.isfile(args.campaign[0]):
+			with open(acharacter,"r") as jsonfile:
+				charjson = json.loads(jsonfile.read())
+				jsonfile.close()
 		else:
-			readin = base64.b64decode(args[1][11:]).decode("utf-8").splitlines()
-		args = [sys.argv[0]]
-		for line in readin:
-			m = regex.search(line)
-			if m:
-				characterurl = m.group(1)
-				if not characterurl.startswith("https://www.dndbeyond.com/"):
-					args.append("https://www.dndbeyond.com"+characterurl)
-				else:
-					args.append(characterurl)
+			charjson = getJSON(args.campaign[0])
+		if "character" in charjson:
+			character = charjson["character"]
+		else:
+			character = charjson
+		if "campaign" not in character or character["campaign"] is None:
+			print("This character is not a member of a campaign.")
+		else:
+			for ch in character["campaign"]["characters"]:
+				if ch['privacyType'] == 3:
+					args.characterurls.append("https://www.dndbeyond.com/character/{}/json".format(ch['characterId']))
+	if args.campaignfile:
+		regex = re.compile("<a[^>]*href=\"(/profile/.*/[0-9]+)\"[^>]*class=\"ddb-campaigns-character-card-header-upper-details-link\"[^>]*>")
 		try:
-			readin.close()
+			readin = open(args.campaignfile[0],'r')
+			args = [sys.argv[0]]
+			for line in readin:
+				m = regex.search(line)
+				if m:
+					characterurl = m.group(1)
+					if not characterurl.startswith("https://www.dndbeyond.com/"):
+						args.characterurls.append("https://www.dndbeyond.com"+characterurl)
+					else:
+						args.characterurls.append(characterurl)
+				readin.close()
 		except:
 			pass
 	characters = []
-	for i in range(len(args)):
-		if args[i] == __file__:
-			continue
-		if os.path.isfile(args[i]):
-				with open(args[i]) as infile:
+	for character in args.characterurls:
+		if os.path.isfile(character):
+				with open(character) as infile:
 					try:
 						json.load(infile)
-						characters.append(args[i])
+						characters.append(character)
 					except JSONDecodeError:
 						found = findURLS(infile)
 						characters.extend(found)
 		else:
-			characters.append(args[i])
-	if len(characters) == 0:
-		characters.append("-")
-	for i in range(len(characters)):
-		if  characters[i] == '-' or os.path.isfile(characters[i]):
-			if os.path.isfile(characters[i]):
-				with open(characters[i],"r") as jsonfile:
+			characters.append(character)
+	for acharacter in characters:
+		if os.path.isfile(acharacter):
+			if os.path.isfile(acharacter):
+				with open(acharacter,"r") as jsonfile:
 					charjson = json.loads(jsonfile.read())
 			else:
 				charjson = json.loads(sys.stdin.read())
@@ -448,11 +533,11 @@ def main():
 			else:
 				character = charjson
 		else:
-			character = getJSON(characters[i])
+			character = getJSON(acharacter)
 		if character is not None:
-			xmloutput = genXML(character)
-			with open(comependiumxml,mode='a',encoding='utf-8') as comependium:
-				comependium.write(xmloutput)
+			genXML(character,compendium)
+			#with open(comependiumxml,mode='a',encoding='utf-8') as comependium:
+			#	comependium.write(xmloutput)
 			if character["avatarUrl"] != "":
 				local_filename = os.path.join(playersdir,character["avatarUrl"].split('/')[-1])
 				r = requests.get(character["avatarUrl"], stream=True)
@@ -460,8 +545,35 @@ def main():
 					with open(local_filename, 'wb') as f:
 						for chunk in r.iter_content(chunk_size=8192):
 							f.write(chunk)
-	with open(comependiumxml,mode='a',encoding='utf-8') as comependium:
-		comependium.write("</compendium>")
+	#with open(comependiumxml,mode='a',encoding='utf-8') as comependium:
+	#	comependium.write("</compendium>")
+
+	def _prettyFormat(elem, level=0):
+		"""
+		@summary: Formats ElementTree element so that it prints pretty (recursive)
+		@param elem: ElementTree element to be pretty formatted
+		@param level: How many levels deep to indent for
+		@todo: May need to add an encoding parameter
+		"""
+		tab = "    "
+
+		i = "\n" + level*tab
+		if len(elem):
+			if not elem.text or not elem.text.strip():
+				elem.text = i + tab
+			for e in elem:
+				_prettyFormat(e, level+1)
+				if not e.tail or not e.tail.strip():
+					e.tail = i + tab
+			if not e.tail or not e.tail.strip():
+				e.tail = i
+			else:
+				if level and (not elem.tail or not elem.tail.strip()):
+					elem.tail = i
+	_prettyFormat(compendium)
+	tree = ET.ElementTree(compendium)
+	tree.write(comependiumxml,xml_declaration=True,	short_empty_elements=False,encoding='utf-8')
+
 
 	zipfile = shutil.make_archive("ddbxml","zip",tempdir)
 	os.rename(zipfile,os.path.join(os.getcwd(),"ddbxml.compendium"))
