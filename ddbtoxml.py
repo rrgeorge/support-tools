@@ -403,7 +403,7 @@ def genXML(character,compendium):
 	cha = ET.SubElement(player, 'cha')
 	cha.text = "{}".format(stat_cha)
 	descr = ET.SubElement(player, 'descr')
-	descr.text = "{}\n<i><a href=\"https://www.dndbeyond.com/profile/username/characters/{}\">Imported from D&amp;D Beyond</a></i>".format(appearance,character["id"])
+	descr.text = "{}\n<i><a href=\"https://www.dndbeyond.com/profile/username/characters/{}\">Imported from D&D Beyond</a></i>".format(appearance,character["id"])
 	partyc = ET.SubElement(player, 'party')
 	partyc.text = "{}".format(party)
 	faction = ET.SubElement(player, 'faction')
