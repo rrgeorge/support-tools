@@ -60,13 +60,14 @@ def genXML(character,compendium):
 		characterclass = character["classes"][0]["definition"]["name"]
 		level = character["classes"][0]["level"]
 		cclass = ET.SubElement(player, 'class')
-		cclass.text = "{}".format(characterclass)
+		cclass.text = "{} {}".format(characterclass,level)
 	clevel = ET.SubElement(player, 'level')
 	clevel.text = "{}".format(level)
 	xp = ET.SubElement(player, 'xp')
 	xp.text = "{}".format(character["currentXp"])
 	hitpoints = character["baseHitPoints"]
 	armorclass = 0
+	hasarmor = False
 	stat_str = character["stats"][0]["value"]
 	stat_dex = character["stats"][1]["value"]
 	stat_con = character["stats"][2]["value"]
@@ -78,7 +79,7 @@ def genXML(character,compendium):
 	modifiers = character["modifiers"]
 	senses = []
 	for modifier in (modifiers["race"]+modifiers["class"]+modifiers["background"]+modifiers["item"]+modifiers["feat"]+modifiers["condition"]):
-		if modifier["isGranted"] == True and modifier["type"].lower() == "bonus":
+		if modifier["type"].lower() == "bonus":
 			if modifier["subType"].lower() == "strength-score":
 				stat_str += modifier["value"]
 			elif modifier["subType"].lower() == "dexterity-score":
@@ -91,8 +92,21 @@ def genXML(character,compendium):
 				stat_wis += modifier["value"]
 			elif modifier["subType"].lower() == "charisma-score":
 				stat_cha += modifier["value"]
-	
+	if character["overrideStats"][0]["value"]:
+		stat_str = character["overrideStats"][0]["value"]
+	if character["overrideStats"][1]["value"]:
+		stat_dex = character["overrideStats"][1]["value"]
+	if character["overrideStats"][2]["value"]:
+		stat_con = character["overrideStats"][2]["value"]
+	if character["overrideStats"][3]["value"]:
+		stat_int = character["overrideStats"][3]["value"]
+	if character["overrideStats"][4]["value"]:
+		stat_wis = character["overrideStats"][4]["value"]
+	if character["overrideStats"][5]["value"]:
+		stat_cha = character["overrideStats"][5]["value"]
 	hitpoints += math.floor((stat_con - 10)/2)*level
+	if character["overrideHitPoints"]:
+		hitpoints = character["overrideHitPoints"]
 	initiative = math.floor((stat_dex - 10)/2)
 	equipment = []
 	for equip in character["inventory"]:
@@ -128,9 +142,11 @@ def genXML(character,compendium):
 		else:
 			equipment.append(equipname)
 		if equip["equipped"] == True and "armorClass" in equip["definition"]:
+			if "Armor" in equip["definition"]["type"]:
+				hasarmor = True
 			armorclass += equip["definition"]["armorClass"]
-	if armorclass == 0:
-		armorclass = 10
+	if not hasarmor:
+		armorclass += 10
 	armorclass += math.floor((stat_dex - 10)/2)
 	light = ""
 	languages = []
@@ -161,6 +177,7 @@ def genXML(character,compendium):
 	skill["Intimidation"] = cha_save
 	skill["Performance"] = cha_save
 	skill["Persuasion"] = cha_save
+
 	for modifier in (modifiers["race"]+modifiers["class"]+modifiers["background"]+modifiers["item"]+modifiers["feat"]+modifiers["condition"]):
 		if modifier["type"].lower() == "half-proficiency":
 			bonus = math.ceil(((level/4)+1)/2)
@@ -322,8 +339,16 @@ def genXML(character,compendium):
 				cha_save = math.floor((stat_cha - 10)/2) + bonus
 	for modifier in (modifiers["race"]+modifiers["class"]+modifiers["background"]+modifiers["item"]+modifiers["feat"]+modifiers["condition"]):
 		if modifier["type"].lower() == "set" and modifier["subType"].lower() == "unarmored-armor-class":
+			if modifier["statId"] == 1:
+				armorclass += math.floor((stat_str - 10)/2)
 			if modifier["statId"] == 3:
 				armorclass += math.floor((stat_con - 10)/2)
+			if modifier["statId"] == 4:
+				armorclass += math.floor((stat_int - 10)/2)
+			if modifier["statId"] == 5:
+				armorclass += math.floor((stat_wis - 10)/2)
+			if modifier["statId"] == 6:
+				armorclass += math.floor((stat_cha - 10)/2)
 			if modifier["value"] is not None:
 				armorclass += modifier["value"]
 		if modifier["type"].lower() == "ignore" and modifier["subType"].lower() == "unarmored-dex-ac-bonus":
