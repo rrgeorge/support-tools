@@ -86,7 +86,7 @@ def genXML(character,compendium):
 				stat_dex += modifier["value"]
 			elif modifier["subType"].lower() == "constitution-score":
 				stat_con += modifier["value"]
-			elif modifier["subType"].lower() == "inteligence-score":
+			elif modifier["subType"].lower() == "intelligence-score":
 				stat_int += modifier["value"]
 			elif modifier["subType"].lower() == "wisdom-score":
 				stat_wis += modifier["value"]
@@ -225,7 +225,7 @@ def genXML(character,compendium):
 				dex_save = math.floor((stat_dex - 10)/2) + bonus
 			if modifier["subType"].lower() == "constitution-saving-throws":
 				con_save = math.floor((stat_con - 10)/2) + bonus
-			if modifier["subType"].lower() == "inteligence-saving-throws":
+			if modifier["subType"].lower() == "intelligence-saving-throws":
 				int_save = math.floor((stat_int - 10)/2) + bonus
 			if modifier["subType"].lower() == "wisdom-saving-throws":
 				wis_save = math.floor((stat_wis - 10)/2) + bonus
@@ -278,7 +278,7 @@ def genXML(character,compendium):
 				dex_save = math.floor((stat_dex - 10)/2) + bonus
 			if modifier["subType"].lower() == "constitution-saving-throws":
 				con_save = math.floor((stat_con - 10)/2) + bonus
-			if modifier["subType"].lower() == "inteligence-saving-throws":
+			if modifier["subType"].lower() == "intelligence-saving-throws":
 				int_save = math.floor((stat_int - 10)/2) + bonus
 			if modifier["subType"].lower() == "wisdom-saving-throws":
 				wis_save = math.floor((stat_wis - 10)/2) + bonus
@@ -331,7 +331,7 @@ def genXML(character,compendium):
 				dex_save = math.floor((stat_dex - 10)/2) + bonus
 			if modifier["subType"].lower() == "constitution-saving-throws":
 				con_save = math.floor((stat_con - 10)/2) + bonus
-			if modifier["subType"].lower() == "inteligence-saving-throws":
+			if modifier["subType"].lower() == "intelligence-saving-throws":
 				int_save = math.floor((stat_int - 10)/2) + bonus
 			if modifier["subType"].lower() == "wisdom-saving-throws":
 				wis_save = math.floor((stat_wis - 10)/2) + bonus
