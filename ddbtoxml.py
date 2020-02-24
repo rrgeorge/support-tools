@@ -67,7 +67,8 @@ def genXML(character,compendium):
 	xp.text = "{}".format(character["currentXp"])
 	hitpoints = character["baseHitPoints"]
 	armorclass = 0
-	hasarmor = False
+	basearmor = 10
+	hasarmor = None
 	stat_str = character["stats"][0]["value"]
 	stat_dex = character["stats"][1]["value"]
 	stat_con = character["stats"][2]["value"]
@@ -80,18 +81,38 @@ def genXML(character,compendium):
 	senses = []
 	for modifier in (modifiers["race"]+modifiers["class"]+modifiers["background"]+modifiers["item"]+modifiers["feat"]+modifiers["condition"]):
 		if modifier["type"].lower() == "bonus":
-			if modifier["subType"].lower() == "strength-score":
+			if modifier["subType"].lower() == "strength-score" and modifier["value"]:
 				stat_str += modifier["value"]
-			elif modifier["subType"].lower() == "dexterity-score":
+			if modifier["subType"].lower() == "dexterity-score" and modifier["value"]:
 				stat_dex += modifier["value"]
-			elif modifier["subType"].lower() == "constitution-score":
+			if modifier["subType"].lower() == "constitution-score" and modifier["value"]:
 				stat_con += modifier["value"]
-			elif modifier["subType"].lower() == "intelligence-score":
+			if modifier["subType"].lower() == "intelligence-score" and modifier["value"]:
 				stat_int += modifier["value"]
-			elif modifier["subType"].lower() == "wisdom-score":
+			if modifier["subType"].lower() == "wisdom-score" and modifier["value"]:
 				stat_wis += modifier["value"]
-			elif modifier["subType"].lower() == "charisma-score":
+			if modifier["subType"].lower() == "charisma-score" and modifier["value"]:
 				stat_cha += modifier["value"]
+			if modifier["subType"].lower() == "hit-points-per-level" and modifier["value"]:
+				hitpoints += modifier["value"]*level
+			#if modifier["subType"].lower() == "armor-class" and modifier["value"]:
+			#	armorclass += modifier["value"]
+		if modifier["type"].lower() == "set":
+			if modifier["subType"].lower() == "minimum-base-armor" and modifier["value"]:
+				basearmor = modifier["value"]
+	if character["bonusStats"][0]["value"]:
+		stat_str += character["bonusStats"][0]["value"]
+	if character["bonusStats"][1]["value"]:
+		stat_dex += character["bonusStats"][1]["value"]
+	if character["bonusStats"][2]["value"]:
+		stat_con += character["bonusStats"][2]["value"]
+	if character["bonusStats"][3]["value"]:
+		stat_int += character["bonusStats"][3]["value"]
+	if character["bonusStats"][4]["value"]:
+		stat_wis += character["bonusStats"][4]["value"]
+	if character["bonusStats"][5]["value"]:
+		stat_cha += character["bonusStats"][5]["value"]
+
 	if character["overrideStats"][0]["value"]:
 		stat_str = character["overrideStats"][0]["value"]
 	if character["overrideStats"][1]["value"]:
@@ -143,11 +164,20 @@ def genXML(character,compendium):
 			equipment.append(equipname)
 		if equip["equipped"] == True and "armorClass" in equip["definition"]:
 			if "Armor" in equip["definition"]["type"]:
-				hasarmor = True
+				hasarmor = equip["definition"]["type"]
 			armorclass += equip["definition"]["armorClass"]
 	if not hasarmor:
-		armorclass += 10
-	armorclass += math.floor((stat_dex - 10)/2)
+		acAddStr = False
+		acAddCon = False
+		acAddInt = False
+		acAddWis = False
+		acAddCha = False
+		armorclass += basearmor
+		armorclass += math.floor((stat_dex - 10)/2)
+	elif hasarmor.lower() == "medium armor" and math.floor((stat_dex - 10)/2) > 2:
+		armorclass += 2
+	elif hasarmor.lower() != "heavy armor":
+		armorclass += math.floor((stat_dex - 10)/2)
 	light = ""
 	languages = []
 	resistence = []
@@ -338,16 +368,21 @@ def genXML(character,compendium):
 			if modifier["subType"].lower() == "charisma-saving-throws":
 				cha_save = math.floor((stat_cha - 10)/2) + bonus
 	for modifier in (modifiers["race"]+modifiers["class"]+modifiers["background"]+modifiers["item"]+modifiers["feat"]+modifiers["condition"]):
-		if modifier["type"].lower() == "set" and modifier["subType"].lower() == "unarmored-armor-class":
-			if modifier["statId"] == 1:
+		if modifier["type"].lower() == "set" and modifier["subType"].lower() == "unarmored-armor-class" and not hasarmor:
+			if modifier["statId"] == 1 and not acAddStr:
+				acAddStr = True
 				armorclass += math.floor((stat_str - 10)/2)
-			if modifier["statId"] == 3:
+			if modifier["statId"] == 3 and not acAddCon:
+				acAddCon = True
 				armorclass += math.floor((stat_con - 10)/2)
-			if modifier["statId"] == 4:
+			if modifier["statId"] == 4 and not acAddInt:
+				acAddInt = True
 				armorclass += math.floor((stat_int - 10)/2)
-			if modifier["statId"] == 5:
+			if modifier["statId"] == 5 and not acAddWis:
+				acAddWis = True
 				armorclass += math.floor((stat_wis - 10)/2)
-			if modifier["statId"] == 6:
+			if modifier["statId"] == 6 and not acAddCha:
+				acAddCha = True
 				armorclass += math.floor((stat_cha - 10)/2)
 			if modifier["value"] is not None:
 				armorclass += modifier["value"]
