@@ -210,7 +210,7 @@ def genXML(character,compendium):
 
 	for modifier in (modifiers["race"]+modifiers["class"]+modifiers["background"]+modifiers["item"]+modifiers["feat"]+modifiers["condition"]):
 		if modifier["type"].lower() == "half-proficiency":
-			bonus = math.ceil(((level/4)+1)/2)
+			bonus = math.floor(math.ceil(((level/4)+1))/2)
 			if modifier["subType"].lower() == "athletics" or modifier["subType"].lower() == "ability-checks":
 				skill["Athletics"] = math.floor((stat_str - 10)/2) + bonus
 			if modifier["subType"].lower() == "acrobatics" or modifier["subType"].lower() == "ability-checks":
@@ -316,7 +316,7 @@ def genXML(character,compendium):
 				cha_save = math.floor((stat_cha - 10)/2) + bonus
 	for modifier in (modifiers["race"]+modifiers["class"]+modifiers["background"]+modifiers["item"]+modifiers["feat"]+modifiers["condition"]):
 		if modifier["type"].lower() == "expertise":
-			bonus = math.ceil(((level/4)+1)*2)
+			bonus = (math.ceil((level/4)+1)*2)
 			if modifier["subType"].lower() == "athletics" or modifier["subType"].lower() == "ability-checks":
 				skill["Athletics"] = math.floor((stat_str - 10)/2) + bonus
 			if modifier["subType"].lower() == "acrobatics" or modifier["subType"].lower() == "ability-checks":
