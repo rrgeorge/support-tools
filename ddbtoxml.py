@@ -37,6 +37,9 @@ def getJSON(theurl):
                                 character = response.json()["character"]
                         else:
                                 character = response.json()
+                        infusions_resp = requests.get("https://character-service.dndbeyond.com/characters/v2/infusions?characterId=" + str(character['id']),headers=headers)
+                        if infusions_resp.status_code == 200:
+                                character['infusions'] = infusions_resp.json()
                         return character
         else:
                 print ("This is not a url for D&D Beyond: {}".format(theurl))
@@ -89,7 +92,7 @@ def genXML(character,compendium):
                         else:
                             skip_modifier = False
                 if skip_modifier:
-                    continue
+                        continue
                 if modifier["type"].lower() == "bonus":
                         if modifier["subType"].lower() == "strength-score" and modifier["value"]:
                                 stat_str += modifier["value"]
@@ -176,6 +179,9 @@ def genXML(character,compendium):
                         if "Armor" in equip["definition"]["type"]:
                                 hasarmor = equip["definition"]["type"]
                         armorclass += equip["definition"]["armorClass"]
+                        for infusion in character["infusions"]:
+                                if infusion["inventoryMappingId"] == equip["id"] and infusion["choiceKey"] == "364B2EAD-4019-4953-A0FF-7B59AE1021EE":
+                                        armorclass += 1
         if not hasarmor:
                 acAddStr = False
                 acAddCon = False
