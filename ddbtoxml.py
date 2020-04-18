@@ -17,14 +17,16 @@ from slugify import slugify
 
 def getJSON(theurl):
         rawjson = ""
-        if theurl.startswith("https://www.dndbeyond.com/"):
+        urlm = re.match(r'(http[s]?://)?((www\.)?dndbeyond.com|ddb.ac)/(profile/[^/]*/)?character[s]?/([0-9]*)(/.*)?',theurl)
+        if urlm:
                 #Pretend to be firefox
                 user_agent = "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:70.0) Gecko/20100101 Firefox/70.0"
                 headers = {'User-Agent': user_agent}
-                urlcomponents = theurl.split("/")
-                charid = urlcomponents[-1]
-                if charid == "json":
-                        charid = urlcomponents[-2]
+                #urlcomponents = theurl.split("/")
+                #charid = urlcomponents[-1]
+                #if charid == "json":
+                #        charid = urlcomponents[-2]
+                charid = urlm.group(5)
                 url = "https://www.dndbeyond.com/character/{}/json".format(charid)
                 response = requests.get(url,headers=headers)
                 if response.status_code != 200:
@@ -523,7 +525,7 @@ def genXML(character,compendium):
         cha = ET.SubElement(player, 'cha')
         cha.text = "{}".format(stat_cha)
         descr = ET.SubElement(player, 'descr')
-        descr.text = "{}\n<i><a href=\"https://www.dndbeyond.com/profile/username/characters/{}\">Imported from D&D Beyond</a></i>".format(appearance,character["id"])
+        descr.text = "{}\n<i><a href=\"https://www.dndbeyond.com/characters/{}\">Imported from D&D Beyond</a></i>".format(appearance,character["id"])
         partyc = ET.SubElement(player, 'party')
         partyc.text = "{}".format(party)
         faction = ET.SubElement(player, 'faction')
