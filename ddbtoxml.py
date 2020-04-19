@@ -33,6 +33,7 @@ def getJSON(theurl):
                         print (theurl)
                         print ("Could not download this character from D&D Beyond: {}".format(response.status_code))
                         print ("Make sure the character is public")
+                print(charid)
                         return
                 else:
                         if "character" in response.json():
@@ -487,6 +488,7 @@ def genXML(character,compendium):
         if "campaign" in character and character["campaign"] is not None:
                 party = character["campaign"]["name"]
                 campaign = ET.SubElement(player, 'campaign', { "ref": slugify(character["campaign"]["name"]) })
+		campaign.text = "{}".format(party)
         background = ""
         if "background" in character and character["background"] is not None and character["background"]["definition"] is not None:
                 background = character["background"]["definition"]["name"]
