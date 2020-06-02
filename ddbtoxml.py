@@ -33,7 +33,7 @@ def getJSON(theurl):
                         print (theurl)
                         print ("Could not download this character from D&D Beyond: {}".format(response.status_code))
                         print ("Make sure the character is public")
-                print(charid)
+                        print(charid)
                         return
                 else:
                         if "character" in response.json():
@@ -43,6 +43,8 @@ def getJSON(theurl):
                         infusions_resp = requests.get("https://character-service.dndbeyond.com/characters/v2/infusions?characterId=" + str(character['id']),headers=headers)
                         if infusions_resp.status_code == 200:
                                 character['infusions'] = infusions_resp.json()
+                        else:
+                                print(infusions_resp)
                         return character
         else:
                 print ("This is not a url for D&D Beyond: {}".format(theurl))
@@ -182,9 +184,10 @@ def genXML(character,compendium):
                         if "Armor" in equip["definition"]["type"]:
                                 hasarmor = equip["definition"]["type"]
                         armorclass += equip["definition"]["armorClass"]
-                        for infusion in character["infusions"]:
-                                if infusion["inventoryMappingId"] == equip["id"] and infusion["choiceKey"] == "364B2EAD-4019-4953-A0FF-7B59AE1021EE":
-                                        armorclass += 1
+                        if 'infusions' in character:
+                                for infusion in character["infusions"]:
+                                        if infusion["inventoryMappingId"] == equip["id"] and infusion["choiceKey"] == "364B2EAD-4019-4953-A0FF-7B59AE1021EE":
+                                                armorclass += 1
         if not hasarmor:
                 acAddStr = False
                 acAddCon = False
@@ -449,7 +452,7 @@ def genXML(character,compendium):
                                 armorclass += math.floor((stat_cha - 10)/2)
                         if modifier["value"] is not None:
                                 armorclass += modifier["value"]
-                if modifier["type"].lower() == "ignore" and modifier["subType"].lower() == "unarmored-dex-ac-bonus":
+                if modifier["type"].lower() == "ignore" and modifier["subType"].lower() == "unarmored-dex-ac-bonus" and not hasarmor:
                         armorclass -= math.floor((stat_dex - 10)/2)
                 if modifier["type"].lower() == "set-base" and modifier["subType"].lower() == "darkvision":
                         senses.append("{} {} ft.".format(modifier["subType"].lower(),modifier["value"]))
@@ -487,8 +490,8 @@ def genXML(character,compendium):
         party = ""
         if "campaign" in character and character["campaign"] is not None:
                 party = character["campaign"]["name"]
-                campaign = ET.SubElement(player, 'campaign', { "ref": slugify(character["campaign"]["name"]) })
-		campaign.text = "{}".format(party)
+                campaign = ET.SubElement(player, 'campaign', { "ref": "/campaign/" + slugify(character["campaign"]["name"]) })
+                #campaign.text = "{}".format(party)
         background = ""
         if "background" in character and character["background"] is not None and character["background"]["definition"] is not None:
                 background = character["background"]["definition"]["name"]
