@@ -460,9 +460,9 @@ def genXML(character,compendium):
                         enabled = ET.SubElement(light, 'enabled')
                         enabled.text = "YES"
                         radiusmin = ET.SubElement(light, 'radiusMin')
-                        radiusmin = "0"
+                        radiusmin.text = "0"
                         radiusmax = ET.SubElement(light, 'radiusMax')
-                        radiusmax = str(modifier["value"])
+                        radiusmax.text = str(modifier["value"])
                         color = ET.SubElement(light, 'color')
                         color.text = "#ffffff"
                         opacity = ET.SubElement(light, 'opacity')
