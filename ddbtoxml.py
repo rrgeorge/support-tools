@@ -454,7 +454,7 @@ def genXML(character,compendium):
                                 armorclass += modifier["value"]
                 if modifier["type"].lower() == "ignore" and modifier["subType"].lower() == "unarmored-dex-ac-bonus" and not hasarmor:
                         armorclass -= math.floor((stat_dex - 10)/2)
-                if modifier["type"].lower() == "set-base" and modifier["subType"].lower() == "darkvision":
+                if (modifier["type"].lower() == "set-base" or modifier["type"].lower() == "sense") and modifier["subType"].lower() == "darkvision":
                         senses.append("{} {} ft.".format(modifier["subType"].lower(),modifier["value"]))
                         light = ET.SubElement(player, 'light', {"id": str(uuid.uuid4()) } )
                         enabled = ET.SubElement(light, 'enabled')
