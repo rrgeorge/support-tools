@@ -52,9 +52,11 @@ def getJSON(theurl):
 
 def genXML(character,compendium):       
         level = 0
-        player = ET.SubElement(compendium, 'player')
+        player = ET.SubElement(compendium, 'player', { 'id': str(uuid.uuid5(uuid.NAMESPACE_URL,character['readonlyUrl'])) } )
         name = ET.SubElement(player, 'name')
         name.text = "{}".format(character["name"])
+        slug = ET.SubElement(player, 'slug')
+        slug.text = "{}".format(slugify(character["name"]))
         ddb = ET.SubElement(player, 'ddb')
         ddb.text = "{}".format(character["id"])
         cclass = ET.SubElement(player, 'class')
@@ -229,6 +231,19 @@ def genXML(character,compendium):
         skill["Intimidation"] = cha_save
         skill["Performance"] = cha_save
         skill["Persuasion"] = cha_save
+        light = ET.SubElement(player, 'light', {"id": str(uuid.uuid5(uuid.NAMESPACE_URL,character['readonlyUrl'] + "/light" )) } )
+        enabled = ET.SubElement(light, 'enabled')
+        enabled.text = "YES"
+        radiusmin = ET.SubElement(light, 'radiusMin')
+        radiusmin.text = "1"
+        radiusmax = ET.SubElement(light, 'radiusMax')
+        radiusmax.text = "0"
+        color = ET.SubElement(light, 'color')
+        color.text = "#ffffff"
+        opacity = ET.SubElement(light, 'opacity')
+        opacity.text = "0.5"
+        visible = ET.SubElement(light, 'alwaysVisible')
+        visible.text = "YES"
 
         for modifier in (modifiers["race"]+modifiers["class"]+modifiers["background"]+modifiers["item"]+modifiers["feat"]+modifiers["condition"]):
                 skip_modifier = False
@@ -456,19 +471,8 @@ def genXML(character,compendium):
                         armorclass -= math.floor((stat_dex - 10)/2)
                 if (modifier["type"].lower() == "set-base" or modifier["type"].lower() == "sense") and modifier["subType"].lower() == "darkvision":
                         senses.append("{} {} ft.".format(modifier["subType"].lower(),modifier["value"]))
-                        light = ET.SubElement(player, 'light', {"id": str(uuid.uuid4()) } )
-                        enabled = ET.SubElement(light, 'enabled')
-                        enabled.text = "YES"
-                        radiusmin = ET.SubElement(light, 'radiusMin')
                         radiusmin.text = "0"
-                        radiusmax = ET.SubElement(light, 'radiusMax')
                         radiusmax.text = str(modifier["value"])
-                        color = ET.SubElement(light, 'color')
-                        color.text = "#ffffff"
-                        opacity = ET.SubElement(light, 'opacity')
-                        opacity.text = "0.5"
-                        visible = ET.SubElement(light, 'alwaysVisible')
-                        visible.text = "YES"
                 if modifier["type"].lower() == "language":
                         languages.append(modifier["friendlySubtypeName"])
                 if modifier["type"].lower() == "resistance":
@@ -605,7 +609,7 @@ def main():
         compendium = ET.Element('compendium')
         if args.campaign:
                 if os.path.isfile(args.campaign[0]):
-                        with open(acharacter,"r") as jsonfile:
+                        with open(args.campaign[0],"r") as jsonfile:
                                 charjson = json.loads(jsonfile.read())
                                 jsonfile.close()
                 else:
