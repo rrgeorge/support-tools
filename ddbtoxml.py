@@ -70,6 +70,32 @@ def genXML(character,compendium):
                 characterclass = character["classes"][0]["definition"]["name"]
                 level = character["classes"][0]["level"]
                 cclass.text = "{} {}".format(characterclass,level)
+        if character["alignmentId"]:
+                if character["alignmentId"] == 1:
+                        cclass.text += ", Lawful Good"
+                if character["alignmentId"] == 2:
+                        cclass.text += ", Neutral Good"
+                if character["alignmentId"] == 3:
+                        cclass.text += ", Chaotic Good"
+                if character["alignmentId"] == 4:
+                        cclass.text += ", Lawful Neutral"
+                if character["alignmentId"] == 5:
+                        cclass.text += ", Neutral"
+                if character["alignmentId"] == 6:
+                        cclass.text += ", Chaotic Neutral"
+                if character["alignmentId"] == 7:
+                        cclass.text += ", Lawful Evil"
+                if character["alignmentId"] == 8:
+                        cclass.text += ", Neutral Evil"
+                if character["alignmentId"] == 9:
+                        cclass.text += ", Chaotic Evil"
+        agegen = []
+        if character["age"]:
+                agegen.append("{}".format(character["age"]))
+        if character["gender"]:
+                agegen.append("{}".format(character["gender"]))
+        if len(agegen) > 0:
+                cclass.text += " ({})".format(", ".join(agegen))
         clevel = ET.SubElement(player, 'level')
         clevel.text = "{}".format(level)
         xp = ET.SubElement(player, 'xp')
@@ -496,21 +522,34 @@ def genXML(character,compendium):
                 party = character["campaign"]["name"]
                 campaign = ET.SubElement(player, 'campaign', { "ref": "/campaign/" + slugify(character["campaign"]["name"]) })
                 #campaign.text = "{}".format(party)
+        features = []
         background = ""
+        def rmTags(m):
+                if m.group(1) == "&nbsp;":
+                        return " "
+                elif m.group(1).startswith("\n\n"):
+                        return "\n"
+                else:
+                        return ""
         if "background" in character and character["background"] is not None and character["background"]["definition"] is not None:
                 background = character["background"]["definition"]["name"]
                 bg_def = character["background"]["definition"]
+                features.append( { "isbg": bg_def['name'], "name": bg_def['featureName'], "text": re.sub(r'((</?(dl|dt|p|div).*?>)+|\&nbsp;|\n[\n]+)',rmTags,bg_def['featureDescription']).strip() } )
         feats = []
         for feat in character["feats"]:
                 feats.append(feat["definition"]["name"])
                 feat_def = feat["definition"]
+                feat_text = re.sub(r'((</?(dl|dt|p|div).*?>)+|\&nbsp;|\n[\n]+)',rmTags,feat_def['snippet'])
+                if 'feat' in character['options']:
+                        for ft_opt in character['options']['feat']:
+                                if ft_opt['componentId'] == feat_def['id']:
+                                        feat_text += "\n • <i>{}</i> {}".format(ft_opt['definition']['name'],re.sub(r'((</?(dl|dt|p|div).*?>)+|\&nbsp;|\n[\n]+)',rmTags,ft_opt['definition']['snippet']) )
+                features.append( { "name": feat_def['name'], "text": feat_text } )
         personality = character["traits"]["personalityTraits"]
         bonds = character["traits"]["bonds"]
         ideals = character["traits"]["ideals"]
         flaws = character["traits"]["flaws"]
         appearance = character["traits"]["appearance"]
-        if appearance is None:
-                appearance = ""
         racec = ET.SubElement(player, 'race')
         racec.text = "{}".format(race)
         initiativec = ET.SubElement(player, 'initiative')
@@ -533,8 +572,6 @@ def genXML(character,compendium):
         wis.text = "{}".format(stat_wis)
         cha = ET.SubElement(player, 'cha')
         cha.text = "{}".format(stat_cha)
-        descr = ET.SubElement(player, 'descr')
-        descr.text = "{}\n<i><a href=\"https://www.dndbeyond.com/characters/{}\">Imported from D&D Beyond</a></i>".format(appearance,character["id"])
         partyc = ET.SubElement(player, 'party')
         partyc.text = "{}".format(party)
         faction = ET.SubElement(player, 'faction')
@@ -576,6 +613,74 @@ def genXML(character,compendium):
         backgroundc.text = "{}".format(background)
         featsc = ET.SubElement(player, 'feats')
         featsc.text = ", ".join(feats)
+        descr = ET.SubElement(player, 'descr')
+        descr.text = ""
+        hasfeats = False
+        for feature in features:
+                if 'isbg' in feature:
+                        descr.text += "<b>Background: {}</b>\n".format(feature['isbg'])
+                elif not hasfeats:
+                        hasfeats = True
+                        descr.text += "<b>Feats</b>\n"
+                def replDDBTag(m):
+                        modifier = -100
+                        if m.group(2) or m.group(3):
+                                stats = m.group(2) if m.group(2) else m.group(3)
+                                for stat in stats.split(','):
+                                        if stat.strip() == "str":
+                                                mod = math.floor((stat_str - 10)/2)
+                                        elif stat.strip() == "dex":
+                                                mod = math.floor((stat_dex - 10)/2)
+                                        elif stat.strip() == "con":
+                                                mod = math.floor((stat_con - 10)/2)
+                                        elif stat.strip() == "int":
+                                                mod = math.floor((stat_int - 10)/2)
+                                        elif stat.strip() == "wis":
+                                                mod = math.floor((stat_wis - 10)/2)
+                                        elif stat.strip() == "cha":
+                                                mod = math.floor((stat_cha - 10)/2)
+                                        if mod > modifier:
+                                                modifier = mod
+                        if modifier == -100:
+                                modifier = 0
+                        if m.group(1).startswith("characterlevel+modifier:"):
+                                return str(level+modifier) if level+modifier >0 else "0"
+                        elif m.group(1).startswith("savedc:"):
+                                modifier += math.ceil((level/4)+1)
+                                return str(8+modifier) if 8+modifier >0 else "0"
+                        elif m.group(1) == "proficiency":
+                                return str(math.ceil((level/4)+1))
+
+                descr.text += "<i>{}</i> {}\n".format(feature["name"],re.sub(r'{{(proficiency|characterlevel\+modifier:(.*?)#.*|savedc:(.*?))}}',replDDBTag,feature["text"]))
+        for (key,value) in character['notes'].items():
+                if value:
+                        if not descr.text.endswith("\n"):
+                                descr.text += "\n"
+                        title = key.title()
+                        if key.lower() == "personalpossessions":
+                                title = "Other Posessions"
+                        elif key.lower() == "othernotes":
+                                title = "Other Notes"
+                        elif key.lower() == "otherholdinga":
+                                title = "Other Holdings"
+                        descr.text += "<b>{}</b>\n{}\n".format(title,re.sub(r'\&nbsp;'," ",value.strip()))
+        if character['faith']:
+                descr.text += "<b>Faith:</b> {}\n".format(re.sub(r'\&nbsp;'," ",character['faith']))
+        if appearance or character['eyes'] or character['hair'] or character['skin'] or character['height'] or character['weight']:
+                descr.text += "<b>Appearance</b>\n"
+                if character['eyes']:
+                        descr.text += "<i>Eyes:</i> {}\n".format(character['eyes'])
+                if character['hair']:
+                        descr.text += "<i>Hair:</i> {}\n".format(character['hair'])
+                if character['skin']:
+                        descr.text += "<i>Skin:</i> {}\n".format(character['skin'])
+                if character['height']:
+                        descr.text += "<i>Height:</i> {}\n".format(character['height'])
+                if character['weight']:
+                        descr.text += "<i>Weight:</i> {}\n".format(character['weight'])
+                if appearance:
+                        descr.text += "{}\n".format(appearance)
+        descr.text += "\n\n<i><a href=\"https://www.dndbeyond.com/characters/{}\">Imported from D&D Beyond</a></i>".format(character["id"])
         return
 
 def findURLS(fp):
