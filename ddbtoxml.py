@@ -11,6 +11,7 @@ import re
 import base64
 import argparse
 import xml.etree.cElementTree as ET
+import copy
 
 from json import JSONDecodeError
 from slugify import slugify
@@ -257,6 +258,7 @@ def genXML(character,compendium):
         skill["Intimidation"] = cha_save
         skill["Performance"] = cha_save
         skill["Persuasion"] = cha_save
+        skillprof = copy.deepcopy(skill)
         light = ET.SubElement(player, 'light', {"id": str(uuid.uuid5(uuid.NAMESPACE_URL,character['readonlyUrl'] + "/light" )) } )
         enabled = ET.SubElement(light, 'enabled')
         enabled.text = "YES"
@@ -287,40 +289,58 @@ def genXML(character,compendium):
                         bonus = math.floor(math.ceil(((level/4)+1))/2)
                         if modifier["subType"].lower() == "athletics" or modifier["subType"].lower() == "ability-checks":
                                 skill["Athletics"] = math.floor((stat_str - 10)/2) + bonus
+                                skillprof["Athletics"] = "half"
                         if modifier["subType"].lower() == "acrobatics" or modifier["subType"].lower() == "ability-checks":
                                 skill["Acrobatics"] = math.floor((stat_dex - 10)/2) + bonus
+                                skillprof["Acrobatics"] = "half"
                         if modifier["subType"].lower() == "sleight-of-hand" or modifier["subType"].lower() == "ability-checks":
                                 skill["Sleight of Hand"] = math.floor((stat_dex - 10)/2) + bonus
+                                skillprof["Sleight of Hand"] = "half"
                         if modifier["subType"].lower() == "stealth" or modifier["subType"].lower() == "ability-checks":
                                 skill["Stealth"] = math.floor((stat_dex - 10)/2) + bonus
+                                skillprof["Stealth"] = "half"
                         if modifier["subType"].lower() == "arcana" or modifier["subType"].lower() == "ability-checks":
                                 skill["Arcana"] = math.floor((stat_int - 10)/2) + bonus
+                                skillprof["Arcana"] = "half"
                         if modifier["subType"].lower() == "history" or modifier["subType"].lower() == "ability-checks":
                                 skill["History"] = math.floor((stat_int - 10)/2) + bonus
+                                skillprof["History"] = "half"
                         if modifier["subType"].lower() == "investigation" or modifier["subType"].lower() == "ability-checks":
                                 skill["Investigation"] = math.floor((stat_int - 10)/2) + bonus
+                                skillprof["Investigation"] = "half"
                         if modifier["subType"].lower() == "nature" or modifier["subType"].lower() == "ability-checks":
                                 skill["Nature"] = math.floor((stat_int - 10)/2) + bonus
+                                skillprof["Nature"] = "half"
                         if modifier["subType"].lower() == "religion" or modifier["subType"].lower() == "ability-checks":
                                 skill["Religion"] = math.floor((stat_int - 10)/2) + bonus
+                                skillprof["Religion"] = "half"
                         if modifier["subType"].lower() == "animal-handling" or modifier["subType"].lower() == "ability-checks":
                                 skill["Animal Handling"] = math.floor((stat_wis - 10)/2) + bonus
+                                skillprof["Animal Handling"] = "half"
                         if modifier["subType"].lower() == "insight" or modifier["subType"].lower() == "ability-checks":
                                 skill["Insight"] = math.floor((stat_wis - 10)/2) + bonus
+                                skillprof["Insight"] = "half"
                         if modifier["subType"].lower() == "medicine" or modifier["subType"].lower() == "ability-checks":
                                 skill["Medicine"] = math.floor((stat_wis - 10)/2) + bonus
+                                skillprof["Medicine"] = "half"
                         if modifier["subType"].lower() == "perception" or modifier["subType"].lower() == "ability-checks":
                                 skill["Perception"] = math.floor((stat_wis - 10)/2) + bonus
+                                skillprof["Perception"] = "half"
                         if modifier["subType"].lower() == "survival" or modifier["subType"].lower() == "ability-checks":
                                 skill["Survival"] = math.floor((stat_wis - 10)/2) + bonus
+                                skillprof["Survival"] = "half"
                         if modifier["subType"].lower() == "deception" or modifier["subType"].lower() == "ability-checks":
                                 skill["Deception"] = math.floor((stat_cha - 10)/2) + bonus
+                                skillprof["Deception"] = "half"
                         if modifier["subType"].lower() == "intimidation" or modifier["subType"].lower() == "ability-checks":
                                 skill["Intimidation"] = math.floor((stat_cha - 10)/2) + bonus
+                                skillprof["Intimidation"] = "half"
                         if modifier["subType"].lower() == "performance" or modifier["subType"].lower() == "ability-checks":
                                 skill["Performance"] = math.floor((stat_cha - 10)/2) + bonus
+                                skillprof["Performance"] = "half"
                         if modifier["subType"].lower() == "persuasion" or modifier["subType"].lower() == "ability-checks":
                                 skill["Persuasion"] = math.floor((stat_cha - 10)/2) + bonus
+                                skillprof["Persuasion"] = "half"
                         if modifier["subType"].lower() == "initiative":
                                 initiative = math.floor((stat_dex - 10)/2) + bonus
                         if modifier["subType"].lower() == "strength-saving-throws":
@@ -351,40 +371,58 @@ def genXML(character,compendium):
                         bonus = math.ceil((level/4)+1)
                         if modifier["subType"].lower() == "athletics" or modifier["subType"].lower() == "ability-checks":
                                 skill["Athletics"] = math.floor((stat_str - 10)/2) + bonus
+                                skillprof["Athletics"] = "full"
                         if modifier["subType"].lower() == "acrobatics" or modifier["subType"].lower() == "ability-checks":
                                 skill["Acrobatics"] = math.floor((stat_dex - 10)/2) + bonus
+                                skillprof["Acrobatics"] = "full"
                         if modifier["subType"].lower() == "sleight-of-hand" or modifier["subType"].lower() == "ability-checks":
                                 skill["Sleight of Hand"] = math.floor((stat_dex - 10)/2) + bonus
+                                skillprof["Sleight of Hand"] = "full"
                         if modifier["subType"].lower() == "stealth" or modifier["subType"].lower() == "ability-checks":
                                 skill["Stealth"] = math.floor((stat_dex - 10)/2) + bonus
+                                skillprof["Stealth"] = "full"
                         if modifier["subType"].lower() == "arcana" or modifier["subType"].lower() == "ability-checks":
                                 skill["Arcana"] = math.floor((stat_int - 10)/2) + bonus
+                                skillprof["Arcana"] = "full"
                         if modifier["subType"].lower() == "history" or modifier["subType"].lower() == "ability-checks":
                                 skill["History"] = math.floor((stat_int - 10)/2) + bonus
+                                skillprof["History"] = "full"
                         if modifier["subType"].lower() == "investigation" or modifier["subType"].lower() == "ability-checks":
                                 skill["Investigation"] = math.floor((stat_int - 10)/2) + bonus
+                                skillprof["Investigation"] = "full"
                         if modifier["subType"].lower() == "nature" or modifier["subType"].lower() == "ability-checks":
                                 skill["Nature"] = math.floor((stat_int - 10)/2) + bonus
+                                skillprof["Nature"] = "full"
                         if modifier["subType"].lower() == "religion" or modifier["subType"].lower() == "ability-checks":
                                 skill["Religion"] = math.floor((stat_int - 10)/2) + bonus
+                                skillprof["Religion"] = "full"
                         if modifier["subType"].lower() == "animal-handling" or modifier["subType"].lower() == "ability-checks":
                                 skill["Animal Handling"] = math.floor((stat_wis - 10)/2) + bonus
+                                skillprof["Animal Handling"] = "full"
                         if modifier["subType"].lower() == "insight" or modifier["subType"].lower() == "ability-checks":
                                 skill["Insight"] = math.floor((stat_wis - 10)/2) + bonus
+                                skillprof["Insight"] = "full"
                         if modifier["subType"].lower() == "medicine" or modifier["subType"].lower() == "ability-checks":
                                 skill["Medicine"] = math.floor((stat_wis - 10)/2) + bonus
+                                skillprof["Medicine"] = "full"
                         if modifier["subType"].lower() == "perception" or modifier["subType"].lower() == "ability-checks":
                                 skill["Perception"] = math.floor((stat_wis - 10)/2) + bonus
+                                skillprof["Perception"] = "full"
                         if modifier["subType"].lower() == "survival" or modifier["subType"].lower() == "ability-checks":
                                 skill["Survival"] = math.floor((stat_wis - 10)/2) + bonus
+                                skillprof["Survival"] = "full"
                         if modifier["subType"].lower() == "deception" or modifier["subType"].lower() == "ability-checks":
                                 skill["Deception"] = math.floor((stat_cha - 10)/2) + bonus
+                                skillprof["Deception"] = "full"
                         if modifier["subType"].lower() == "intimidation" or modifier["subType"].lower() == "ability-checks":
                                 skill["Intimidation"] = math.floor((stat_cha - 10)/2) + bonus
+                                skillprof["Intimidation"] = "full"
                         if modifier["subType"].lower() == "performance" or modifier["subType"].lower() == "ability-checks":
                                 skill["Performance"] = math.floor((stat_cha - 10)/2) + bonus
+                                skillprof["Performance"] = "full"
                         if modifier["subType"].lower() == "persuasion" or modifier["subType"].lower() == "ability-checks":
                                 skill["Persuasion"] = math.floor((stat_cha - 10)/2) + bonus
+                                skillprof["Persuasion"] = "full"
                         if modifier["subType"].lower() == "initiative":
                                 initiative = math.floor((stat_dex - 10)/2) + bonus
                         if modifier["subType"].lower() == "strength-saving-throws":
@@ -415,40 +453,58 @@ def genXML(character,compendium):
                         bonus = (math.ceil((level/4)+1)*2)
                         if modifier["subType"].lower() == "athletics" or modifier["subType"].lower() == "ability-checks":
                                 skill["Athletics"] = math.floor((stat_str - 10)/2) + bonus
+                                skillprof["Athletics"] = "expert"
                         if modifier["subType"].lower() == "acrobatics" or modifier["subType"].lower() == "ability-checks":
                                 skill["Acrobatics"] = math.floor((stat_dex - 10)/2) + bonus
+                                skillprof["Acrobatics"] = "expert"
                         if modifier["subType"].lower() == "sleight-of-hand" or modifier["subType"].lower() == "ability-checks":
                                 skill["Sleight of Hand"] = math.floor((stat_dex - 10)/2) + bonus
+                                skillprof["Sleight of Hand"] = "expert"
                         if modifier["subType"].lower() == "stealth" or modifier["subType"].lower() == "ability-checks":
                                 skill["Stealth"] = math.floor((stat_dex - 10)/2) + bonus
+                                skillprof["Stealth"] = "expert"
                         if modifier["subType"].lower() == "arcana" or modifier["subType"].lower() == "ability-checks":
                                 skill["Arcana"] = math.floor((stat_int - 10)/2) + bonus
+                                skillprof["Arcana"] = "expert"
                         if modifier["subType"].lower() == "history" or modifier["subType"].lower() == "ability-checks":
                                 skill["History"] = math.floor((stat_int - 10)/2) + bonus
+                                skillprof["History"] = "expert"
                         if modifier["subType"].lower() == "investigation" or modifier["subType"].lower() == "ability-checks":
                                 skill["Investigation"] = math.floor((stat_int - 10)/2) + bonus
+                                skillprof["Investigation"] = "expert"
                         if modifier["subType"].lower() == "nature" or modifier["subType"].lower() == "ability-checks":
                                 skill["Nature"] = math.floor((stat_int - 10)/2) + bonus
+                                skillprof["Nature"] = "expert"
                         if modifier["subType"].lower() == "religion" or modifier["subType"].lower() == "ability-checks":
                                 skill["Religion"] = math.floor((stat_int - 10)/2) + bonus
+                                skillprof["Religion"] = "expert"
                         if modifier["subType"].lower() == "animal-handling" or modifier["subType"].lower() == "ability-checks":
                                 skill["Animal Handling"] = math.floor((stat_wis - 10)/2) + bonus
+                                skillprof["Animal Handling"] = "expert"
                         if modifier["subType"].lower() == "insight" or modifier["subType"].lower() == "ability-checks":
                                 skill["Insight"] = math.floor((stat_wis - 10)/2) + bonus
+                                skillprof["Insight"] = "expert"
                         if modifier["subType"].lower() == "medicine" or modifier["subType"].lower() == "ability-checks":
                                 skill["Medicine"] = math.floor((stat_wis - 10)/2) + bonus
+                                skillprof["Medicine"] = "expert"
                         if modifier["subType"].lower() == "perception" or modifier["subType"].lower() == "ability-checks":
                                 skill["Perception"] = math.floor((stat_wis - 10)/2) + bonus
+                                skillprof["Perception"] = "expert"
                         if modifier["subType"].lower() == "survival" or modifier["subType"].lower() == "ability-checks":
                                 skill["Survival"] = math.floor((stat_wis - 10)/2) + bonus
+                                skillprof["Survival"] = "expert"
                         if modifier["subType"].lower() == "deception" or modifier["subType"].lower() == "ability-checks":
                                 skill["Deception"] = math.floor((stat_cha - 10)/2) + bonus
+                                skillprof["Deception"] = "expert"
                         if modifier["subType"].lower() == "intimidation" or modifier["subType"].lower() == "ability-checks":
                                 skill["Intimidation"] = math.floor((stat_cha - 10)/2) + bonus
+                                skillprof["Intimidation"] = "expert"
                         if modifier["subType"].lower() == "performance" or modifier["subType"].lower() == "ability-checks":
                                 skill["Performance"] = math.floor((stat_cha - 10)/2) + bonus
+                                skillprof["Performance"] = "expert"
                         if modifier["subType"].lower() == "persuasion" or modifier["subType"].lower() == "ability-checks":
                                 skill["Persuasion"] = math.floor((stat_cha - 10)/2) + bonus
+                                skillprof["Persuasion"] = "expert"
                         if modifier["subType"].lower() == "initiative":
                                 initiative = math.floor((stat_dex - 10)/2) + bonus
                         if modifier["subType"].lower() == "strength-saving-throws":
@@ -599,10 +655,19 @@ def genXML(character,compendium):
         flawsc.text = "{}".format(flaws)
         skills = []
         for sk in sorted(skill.keys()):
-                skills.append("{} {:+d}".format(sk,skill[sk]))
+                skills.append("{} {} {:+d}".format("\u25C8" if skillprof[sk] == "expert" else "\u25C6" if skillprof[sk] == "full" else "\u25C3" if skillprof[sk] == "half" else "\u25C7",sk,skill[sk]))
         skill = ET.SubElement(player, 'skill')
-        skill.text = "{}".format(", ".join(skills))
-
+        skill.text = ":\n{}".format("\n".join(skills))
+        skill.text += "\nLong Jump: {} ft/{} ft, High Jump {} ft/{} ft\nCarrying Capacity: {} lbs (encumbered {}/{} lbs)\nPush/Drag/Lift: {} lbs".format(stat_str/2,stat_str,(3+math.floor((stat_str - 10)/2))/2,3+math.floor((stat_str - 10)/2),15*stat_str,5*stat_str,10*stat_str,30*stat_str)
+        lungs = math.floor((stat_con - 10)/2)+1
+        if lungs < 1:
+                skill.text += "\nHold Breath: 30 sec (suffocation in 1 round)"
+        elif lungs == 1:
+                skill.text += "\nHold Breath: 1 minute (suffocation in 1 round)"
+        elif lungs == 2:
+                skill.text += "\nHold Breath: 2 minutes (suffocation in 1 round)"
+        else:
+                skill.text += "\nHold Breath: {} minutes (suffocation in {} rounds)".format(lungs,lungs-1)
         save = ET.SubElement(player, 'save')
         save.text = "Str {:+d}, Dex {:+d}, Con {:+d}, Int {:+d}, Wis {:+d}, Cha {:+d}".format(str_save,dex_save,con_save,int_save,wis_save,cha_save)
         resist = ET.SubElement(player, 'resist')
