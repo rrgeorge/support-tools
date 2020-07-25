@@ -12,6 +12,8 @@ import base64
 import argparse
 import xml.etree.cElementTree as ET
 import copy
+import random
+import time
 
 from json import JSONDecodeError
 from slugify import slugify
@@ -29,6 +31,7 @@ def getJSON(theurl):
                 #        charid = urlcomponents[-2]
                 charid = urlm.group(5)
                 url = "https://www.dndbeyond.com/character/{}/json".format(charid)
+                time.sleep(random.random()*2)
                 response = requests.get(url,headers=headers)
                 if response.status_code != 200:
                         print (theurl)
@@ -41,6 +44,7 @@ def getJSON(theurl):
                                 character = response.json()["character"]
                         else:
                                 character = response.json()
+                        time.sleep(random.random()*2)
                         infusions_resp = requests.get("https://character-service.dndbeyond.com/characters/v2/infusions?characterId=" + str(character['id']),headers=headers)
                         if infusions_resp.status_code == 200:
                                 character['infusions'] = infusions_resp.json()
@@ -61,14 +65,66 @@ def genXML(character,compendium):
         ddb = ET.SubElement(player, 'ddb')
         ddb.text = "{}".format(character["id"])
         cclass = ET.SubElement(player, 'class')
+        cfs = {}
         if len(character["classes"]) > 1:
                 allclasses = []
                 for acclass in character["classes"]:
+                        cfs[acclass["definition"]["name"]] = []
+                        acfs = cfs[acclass["definition"]["name"]]
+                        for cf in acclass["classFeatures"]:
+                                if cf['definition']['requiredLevel'] <= acclass['level']:# and cf['definition']['snippet']:
+                                        cf_def = cf['definition']
+                                        cftext = cf_def['snippet']
+                                        cfmods = []
+                                        for cmod in character['modifiers']['class']:
+                                                if cmod['componentId'] == cf_def['id']:
+                                                        if cmod['type'] == 'set' and cmod['subType'] == 'subclass':
+                                                                cfmods.append(acclass['subclassDefinition']['name'])
+                                                        elif cmod['subType'] not in ['thieves-cant','ability-checks','initiative']:
+                                                                cfmods.append(cmod["friendlySubtypeName"])
+                                        for cmod in character['options']['class']:
+                                                if cmod['componentId'] == cf_def['id']:
+                                                        cfmods.append("<i>{}.</i> {}".format(cmod['definition']["name"],cmod['definition']['snippet']))
+                                        if len(cfmods) > 0:
+                                                cftext += " — " + ", ".join(cfmods)
+                                        if not cftext.strip():
+                                                continue
+                                        def replDDBScale(m):
+                                                if m.group(1) == "classlevel":
+                                                        return str(acclass["level"])
+                                                return cf['levelScale']['description']
+                                        acfs.append( { 'name': cf_def['name'], 'text': re.sub(r'{{(scalevalue|classlevel)(#(un)?signed)?}}',replDDBScale,cftext), 'order': cf_def['displayOrder'] })
                         level += acclass["level"]
                         allclasses.append("{} {}".format(acclass["definition"]["name"],acclass["level"]))
                         cclass.text = '/'.join(allclasses)
         else:
+                acclass = character["classes"][0]
                 characterclass = character["classes"][0]["definition"]["name"]
+                cfs[acclass["definition"]["name"]] = []
+                acfs = cfs[acclass["definition"]["name"]]
+                for cf in acclass["classFeatures"]:
+                        if cf['definition']['requiredLevel'] <= acclass['level']:# and cf['definition']['snippet']:
+                                cf_def = cf['definition']
+                                cftext = cf_def['snippet']
+                                cfmods = []
+                                for cmod in character['modifiers']['class']:
+                                        if cmod['componentId'] == cf_def['id']:
+                                                if cmod['type'] == 'set' and cmod['subType'] == 'subclass':
+                                                        cfmods.append(acclass['subclassDefinition']['name'])
+                                                elif cmod['subType'] not in ['thieves-cant','ability-checks','initiative']:
+                                                        cfmods.append(cmod["friendlySubtypeName"])
+                                for cmod in character['options']['class']:
+                                        if cmod['componentId'] == cf_def['id']:
+                                                cfmods.append("<i>{}.</i> {}".format(cmod['definition']["name"],cmod['definition']['snippet']))
+                                if len(cfmods) > 0:
+                                        cftext += " — " + ", ".join(cfmods)
+                                if not cftext.strip():
+                                        continue
+                                def replDDBScale(m):
+                                        if m.group(1) == "classlevel":
+                                                return str(acclass["level"])
+                                        return cf['levelScale']['description']
+                                acfs.append( { 'name': cf_def['name'], 'text': re.sub(r'{{(scalevalue|classlevel)(#(un)?signed)?}}',replDDBScale,cftext), 'order': cf_def['displayOrder'] })
                 level = character["classes"][0]["level"]
                 cclass.text = "{} {}".format(characterclass,level)
         if character["alignmentId"]:
@@ -112,6 +168,13 @@ def genXML(character,compendium):
         stat_wis = character["stats"][4]["value"]
         stat_cha = character["stats"][5]["value"]
         race = character["race"]["fullName"]
+        racefeatures = []
+        for rf in character["race"]["racialTraits"]:
+                rf_def = rf['definition']
+                rftext = rf_def['snippet']
+                if not rftext:
+                        continue
+                racefeatures.append( { 'name': rf_def['name'], 'text': rftext, 'order': rf_def['displayOrder'] if rf_def['displayOrder'] else 0})
         speed = character["race"]["weightSpeeds"]["normal"]["walk"]
         modifiers = character["modifiers"]
         senses = []
@@ -599,7 +662,7 @@ def genXML(character,compendium):
                 if 'feat' in character['options']:
                         for ft_opt in character['options']['feat']:
                                 if ft_opt['componentId'] == feat_def['id']:
-                                        feat_text += "\n • <i>{}</i> {}".format(ft_opt['definition']['name'],re.sub(r'((</?(dl|dt|p|div).*?>)+|\&nbsp;|\n[\n]+)',rmTags,ft_opt['definition']['snippet']) )
+                                        feat_text += "\n • <i>{}.</i> {}".format(ft_opt['definition']['name'],re.sub(r'((</?(dl|dt|p|div).*?>)+|\&nbsp;|\n[\n]+)',rmTags,ft_opt['definition']['snippet']) )
                 features.append( { "name": feat_def['name'], "text": feat_text } )
         personality = character["traits"]["personalityTraits"]
         bonds = character["traits"]["bonds"]
@@ -654,11 +717,12 @@ def genXML(character,compendium):
         flawsc = ET.SubElement(player, 'flaws')
         flawsc.text = "{}".format(flaws)
         skills = []
+        skillprof["Nature"] = 5
         for sk in sorted(skill.keys()):
-                skills.append("{} {} {:+d}".format("\u25C8" if skillprof[sk] == "expert" else "\u25C6" if skillprof[sk] == "full" else "\u25C3" if skillprof[sk] == "half" else "\u25C7",sk,skill[sk]))
+                skills.append("{} {} {:+d}".format("\u2009\u25C8\u2005" if skillprof[sk] == "expert" else "\u200a\u25C6\u2006" if skillprof[sk] == "full" else "\u2004\u2b17\u2004" if skillprof[sk] == "half" else "\u200a\u25C7\u2006",sk,skill[sk]))
         skill = ET.SubElement(player, 'skill')
-        skill.text = ":\n{}".format("\n".join(skills))
-        skill.text += "\nLong Jump: {} ft/{} ft, High Jump {} ft/{} ft\nCarrying Capacity: {} lbs (encumbered {}/{} lbs)\nPush/Drag/Lift: {} lbs".format(stat_str/2,stat_str,(3+math.floor((stat_str - 10)/2))/2,3+math.floor((stat_str - 10)/2),15*stat_str,5*stat_str,10*stat_str,30*stat_str)
+        skill.text = "\u2060\n{}\n".format("\n".join(skills))
+        skill.text += "Long Jump: {} ft/{} ft, High Jump {} ft/{} ft\nCarrying Capacity: {} lbs (encumbered {}/{} lbs)\nPush/Drag/Lift: {} lbs".format(stat_str/2,stat_str,(3+math.floor((stat_str - 10)/2))/2,3+math.floor((stat_str - 10)/2),15*stat_str,5*stat_str,10*stat_str,30*stat_str)
         lungs = math.floor((stat_con - 10)/2)+1
         if lungs < 1:
                 skill.text += "\nHold Breath: 30 sec (suffocation in 1 round)"
@@ -681,42 +745,63 @@ def genXML(character,compendium):
         descr = ET.SubElement(player, 'descr')
         descr.text = ""
         hasfeats = False
+        ddbRE = re.compile(r'{{(proficiency|(characterlevel\+modifier|savedc|spellattack|modifier):(.*?)|\(proficiency/2\)@rounddown)(@(min|max):([0-9]*))?(#(unsigned|signed))?}}')
+        def replDDBTag(m):
+                modifier = -100
+                if m.group(3):
+                        for stat in m.group(3).split(','):
+                                if stat.strip() == "str":
+                                        mod = math.floor((stat_str - 10)/2)
+                                elif stat.strip() == "dex":
+                                        mod = math.floor((stat_dex - 10)/2)
+                                elif stat.strip() == "con":
+                                        mod = math.floor((stat_con - 10)/2)
+                                elif stat.strip() == "int":
+                                        mod = math.floor((stat_int - 10)/2)
+                                elif stat.strip() == "wis":
+                                        mod = math.floor((stat_wis - 10)/2)
+                                elif stat.strip() == "cha":
+                                        mod = math.floor((stat_cha - 10)/2)
+                                if mod > modifier:
+                                        modifier = mod
+                if modifier == -100:
+                        modifier = 0
+                if m.group(1).startswith("characterlevel+modifier:"):
+                        retval = level+modifier if level+modifier >0 else 0
+                elif m.group(1).startswith("savedc:"):
+                        modifier += math.ceil((level/4)+1)
+                        retval = 8+modifier if 8+modifier >0 else 0
+                elif m.group(1).startswith("spellattack:"):
+                        retval = math.ceil((level/4)+1)+modifier
+                elif m.group(1) == "proficiency":
+                        retval = math.ceil((level/4)+1)
+                elif m.group(1) == "(proficiency/2)@rounddown":
+                        retval = math.floor(math.ceil((level/4)+1)/2)
+                elif m.group(1).startswith("modifier:"):
+                        retval = modifier
+                if m.group(4):
+                        if m.group(5) == "min" and retval < int(m.group(6)):
+                                retval = int(m.group(6))
+                        elif m.group(5) == "max" and retval > int(m.group(6)):
+                                retval = int(m.group(6))
+                if (m.group(8) and m.group(8) == "signed") or "attack" in m.group(1):
+                        return "{:+d}".format(retval)
+                else:
+                        return str(retval)
+        for cl in cfs.keys():
+                descr.text += "<b>{} Features:</b>\n".format(cl)
+                for cf in sorted(cfs[cl],key=lambda k:k['order']):
+                        descr.text += "<i>{}.</i> {}\n".format(cf["name"],ddbRE.sub(replDDBTag,cf["text"]))
+        descr.text += "<b>Racial Traits:</b>\n"
+        for rf in sorted(racefeatures,key=lambda k:k['order']):
+                        descr.text += "<i>{}</i> {}\n".format(rf["name"],ddbRE.sub(replDDBTag,rf["text"]))
         for feature in features:
                 if 'isbg' in feature:
                         descr.text += "<b>Background: {}</b>\n".format(feature['isbg'])
                 elif not hasfeats:
                         hasfeats = True
                         descr.text += "<b>Feats</b>\n"
-                def replDDBTag(m):
-                        modifier = -100
-                        if m.group(2) or m.group(3):
-                                stats = m.group(2) if m.group(2) else m.group(3)
-                                for stat in stats.split(','):
-                                        if stat.strip() == "str":
-                                                mod = math.floor((stat_str - 10)/2)
-                                        elif stat.strip() == "dex":
-                                                mod = math.floor((stat_dex - 10)/2)
-                                        elif stat.strip() == "con":
-                                                mod = math.floor((stat_con - 10)/2)
-                                        elif stat.strip() == "int":
-                                                mod = math.floor((stat_int - 10)/2)
-                                        elif stat.strip() == "wis":
-                                                mod = math.floor((stat_wis - 10)/2)
-                                        elif stat.strip() == "cha":
-                                                mod = math.floor((stat_cha - 10)/2)
-                                        if mod > modifier:
-                                                modifier = mod
-                        if modifier == -100:
-                                modifier = 0
-                        if m.group(1).startswith("characterlevel+modifier:"):
-                                return str(level+modifier) if level+modifier >0 else "0"
-                        elif m.group(1).startswith("savedc:"):
-                                modifier += math.ceil((level/4)+1)
-                                return str(8+modifier) if 8+modifier >0 else "0"
-                        elif m.group(1) == "proficiency":
-                                return str(math.ceil((level/4)+1))
-
-                descr.text += "<i>{}</i> {}\n".format(feature["name"],re.sub(r'{{(proficiency|characterlevel\+modifier:(.*?)#.*|savedc:(.*?))}}',replDDBTag,feature["text"]))
+                descr.text += "<i>{}.</i> {}\n".format(feature["name"],ddbRE.sub(replDDBTag,feature["text"]))
         for (key,value) in character['notes'].items():
                 if value:
                         if not descr.text.endswith("\n"):
@@ -841,6 +926,7 @@ def main():
                         #       comependium.write(xmloutput)
                         if character["avatarUrl"] != "":
                                 local_filename = os.path.join(playersdir,character["avatarUrl"].split('/')[-1])
+                                time.sleep(random.random()*2)
                                 r = requests.get(character["avatarUrl"], stream=True)
                                 if r.status_code == 200:
                                         with open(local_filename, 'wb') as f:
@@ -893,3 +979,6 @@ def main():
 
 if __name__== "__main__":
         main()
+
+
+# vim: ts=4 sw=4 et
