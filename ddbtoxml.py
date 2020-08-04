@@ -18,19 +18,21 @@ import time
 from json import JSONDecodeError
 from slugify import slugify
 
+#Pretend to be firefox        
+user_agent = "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:70.0) Gecko/20100101 Firefox/70.0"
+headers = {'User-Agent': user_agent}
+
 def getJSON(theurl):
         rawjson = ""
         urlm = re.match(r'(http[s]?://)?((www\.)?dndbeyond.com|ddb.ac)/(profile/[^/]*/)?character[s]?/([0-9]*)(/.*)?',theurl)
         if urlm:
-                #Pretend to be firefox
-                user_agent = "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:70.0) Gecko/20100101 Firefox/70.0"
-                headers = {'User-Agent': user_agent}
                 #urlcomponents = theurl.split("/")
                 #charid = urlcomponents[-1]
                 #if charid == "json":
                 #        charid = urlcomponents[-2]
                 charid = urlm.group(5)
-                url = "https://www.dndbeyond.com/character/{}/json".format(charid)
+                #url = "https://www.dndbeyond.com/character/{}/json".format(charid)
+                url = "https://character-service.dndbeyond.com/character/v3/character/{}".format(charid)
                 time.sleep(random.random()*2)
                 response = requests.get(url,headers=headers)
                 if response.status_code != 200:
@@ -42,14 +44,10 @@ def getJSON(theurl):
                 else:
                         if "character" in response.json():
                                 character = response.json()["character"]
+                        elif "data" in response.json():
+                                character = response.json()["data"]
                         else:
                                 character = response.json()
-                        time.sleep(random.random()*2)
-                        infusions_resp = requests.get("https://character-service.dndbeyond.com/characters/v2/infusions?characterId=" + str(character['id']),headers=headers)
-                        if infusions_resp.status_code == 200:
-                                character['infusions'] = infusions_resp.json()
-                        else:
-                                print(infusions_resp)
                         return character
         else:
                 print ("This is not a url for D&D Beyond: {}".format(theurl))
@@ -66,6 +64,7 @@ def genXML(character,compendium):
         ddb.text = "{}".format(character["id"])
         cclass = ET.SubElement(player, 'class')
         cfs = {}
+        classRE = re.compile(r'{{\(?(scalevalue|classlevel)(/([0-9]+)\)@round(up|down))?(#(un)?signed)?}}')
         if len(character["classes"]) > 1:
                 allclasses = []
                 for acclass in character["classes"]:
@@ -75,7 +74,16 @@ def genXML(character,compendium):
                                 if cf['definition']['requiredLevel'] <= acclass['level']:# and cf['definition']['snippet']:
                                         cf_def = cf['definition']
                                         cftext = cf_def['snippet']
+                                        if cftext == None:
+                                                cftext = ""
                                         cfmods = []
+                                        if 'infusionRules' in cf_def and cf_def['infusionRules'] and 'infusions' not in character:
+                                                time.sleep(random.random()*2)
+                                                infusions_resp = requests.get("https://character-service.dndbeyond.com/character/v3/infusion/items?characterId=" + str(character['id']),headers=headers)
+                                                if infusions_resp.status_code == 200:
+                                                        infusionjson = infusions_resp.json()
+                                                        if 'data' in infusionjson:
+                                                                character['infusions'] = infusionjson['data']
                                         for cmod in character['modifiers']['class']:
                                                 if cmod['componentId'] == cf_def['id']:
                                                         if cmod['type'] == 'set' and cmod['subType'] == 'subclass':
@@ -91,9 +99,17 @@ def genXML(character,compendium):
                                                 continue
                                         def replDDBScale(m):
                                                 if m.group(1) == "classlevel":
-                                                        return str(acclass["level"])
+                                                        retval = acclass["level"]
+                                                        if m.group(2) and m.group(4) == "down":
+                                                                retval = math.floor(retval/int(m.group(3)))
+                                                        elif m.group(2) and m.group(4) == "up":
+                                                                retval = math.ceil(retval/int(m.group(3)))
+                                                        if m.group(5) and not m.group(6):
+                                                                return "{:+d}".format(retval)
+                                                        else:
+                                                                return "{}".format(retval)
                                                 return cf['levelScale']['description']
-                                        acfs.append( { 'name': cf_def['name'], 'text': re.sub(r'{{(scalevalue|classlevel)(#(un)?signed)?}}',replDDBScale,cftext), 'order': cf_def['displayOrder'] })
+                                        acfs.append( { 'name': cf_def['name'], 'text': classRE.sub(replDDBScale,cftext), 'order': cf_def['displayOrder'] })
                         level += acclass["level"]
                         allclasses.append("{} {}".format(acclass["definition"]["name"],acclass["level"]))
                         cclass.text = '/'.join(allclasses)
@@ -106,11 +122,23 @@ def genXML(character,compendium):
                         if cf['definition']['requiredLevel'] <= acclass['level']:# and cf['definition']['snippet']:
                                 cf_def = cf['definition']
                                 cftext = cf_def['snippet']
+                                if cftext == None:
+                                        cftext = ""
                                 cfmods = []
+                                if 'infusionRules' in cf_def and cf_def['infusionRules'] and 'infusions' not in character:
+                                        time.sleep(random.random()*2)
+                                        infusions_resp = requests.get("https://character-service.dndbeyond.com/character/v3/infusion/items?characterId=" + str(character['id']),headers=headers)
+                                        if infusions_resp.status_code == 200:
+                                                infusionjson = infusions_resp.json()
+                                                if 'data' in infusionjson:
+                                                        character['infusions'] = infusionjson['data']
                                 for cmod in character['modifiers']['class']:
                                         if cmod['componentId'] == cf_def['id']:
                                                 if cmod['type'] == 'set' and cmod['subType'] == 'subclass':
-                                                        cfmods.append(acclass['subclassDefinition']['name'])
+                                                        if not acclass['subclassDefinition']:
+                                                                cfmods.append("No Choice Made")
+                                                        else:
+                                                                cfmods.append(acclass['subclassDefinition']['name'])
                                                 elif cmod['subType'] not in ['thieves-cant','ability-checks','initiative']:
                                                         cfmods.append(cmod["friendlySubtypeName"])
                                 for cmod in character['options']['class']:
@@ -122,9 +150,17 @@ def genXML(character,compendium):
                                         continue
                                 def replDDBScale(m):
                                         if m.group(1) == "classlevel":
-                                                return str(acclass["level"])
+                                                retval = acclass["level"]
+                                                if m.group(2) and m.group(4) == "down":
+                                                        retval = math.floor(retval/int(m.group(3)))
+                                                elif m.group(2) and m.group(4) == "up":
+                                                        retval = math.ceil(retval/int(m.group(3)))
+                                                if m.group(5) and not m.group(6):
+                                                        return "{:+d}".format(retval)
+                                                else:
+                                                        return "{}".format(retval)
                                         return cf['levelScale']['description']
-                                acfs.append( { 'name': cf_def['name'], 'text': re.sub(r'{{(scalevalue|classlevel)(#(un)?signed)?}}',replDDBScale,cftext), 'order': cf_def['displayOrder'] })
+                                acfs.append( { 'name': cf_def['name'], 'text': classRE.sub(replDDBScale,cftext), 'order': cf_def['displayOrder'] })
                 level = character["classes"][0]["level"]
                 cclass.text = "{} {}".format(characterclass,level)
         if character["alignmentId"]:
@@ -265,16 +301,16 @@ def genXML(character,compendium):
                 if m:
                         equipname = "Potion of {} Healing".format(m.group(1))
                 equipname = re.sub(r'(Arrow|Bolt|Needle|Bullet)s(.*)(?<!\([0-9]{2}\))$',r'\1\2',equipname)
-                if "armor" in equip["definition"]["type"].lower():
+                if "armor" == equip["definition"]["filterType"].lower():
                         if equipname.lower().endswith("leather") or equipname.lower().endswith("padded") or equipname.lower().endswith("plate") or equipname.lower().endswith("hide"):
                                 equipment.append(equipname + " Armor")
                         else:
                                 equipment.append(equipname)
                 else:
                         equipment.append(equipname)
-                if equip["equipped"] == True and "armorClass" in equip["definition"]:
-                        if "Armor" in equip["definition"]["type"]:
-                                hasarmor = equip["definition"]["type"]
+                if equip["equipped"] == True and "armorClass" in equip["definition"] and equip["definition"]["armorClass"]:
+                        if "armor" == equip["definition"]["filterType"].lower() and equip["definition"]["armorTypeId"] < 4:
+                                hasarmor = equip["definition"]["armorTypeId"]
                         armorclass += equip["definition"]["armorClass"]
                         if 'infusions' in character:
                                 for infusion in character["infusions"]:
@@ -288,9 +324,9 @@ def genXML(character,compendium):
                 acAddCha = False
                 armorclass += basearmor
                 armorclass += math.floor((stat_dex - 10)/2)
-        elif hasarmor.lower() == "medium armor" and math.floor((stat_dex - 10)/2) > 2:
+        elif hasarmor == 2 and math.floor((stat_dex - 10)/2) > 2:
                 armorclass += 2
-        elif hasarmor.lower() != "heavy armor":
+        elif hasarmor != 3:
                 armorclass += math.floor((stat_dex - 10)/2)
         light = ""
         languages = []
@@ -594,6 +630,8 @@ def genXML(character,compendium):
                             skip_modifier = False
                 if skip_modifier:
                     continue
+                if modifier["type"].lower() == "bonus" and modifier["subType"].lower() == "armored-armor-class" and hasarmor:
+                        armorclass += modifier["value"]
                 if modifier["type"].lower() == "set" and modifier["subType"].lower() == "unarmored-armor-class" and not hasarmor:
                         if modifier["statId"] == 1 and not acAddStr:
                                 acAddStr = True
@@ -705,7 +743,7 @@ def genXML(character,compendium):
         languagesc.text = ", ".join(languages)
         equipmentc = ET.SubElement(player, 'equipment')
         equipmentc.text = ", ".join(equipment)
-        if character["avatarUrl"] != "":
+        if character["avatarUrl"] and not args.noimg:
                 image = ET.SubElement(player, 'image')
                 image.text = character["avatarUrl"].split('/')[-1]
         personalityc = ET.SubElement(player, 'personality')
@@ -750,6 +788,9 @@ def genXML(character,compendium):
                 modifier = -100
                 if m.group(3):
                         for stat in m.group(3).split(','):
+                                bonus = 0
+                                if ':' in stat:
+                                        (stat,bonus) = stat.strip().split(':',2)
                                 if stat.strip() == "str":
                                         mod = math.floor((stat_str - 10)/2)
                                 elif stat.strip() == "dex":
@@ -762,6 +803,8 @@ def genXML(character,compendium):
                                         mod = math.floor((stat_wis - 10)/2)
                                 elif stat.strip() == "cha":
                                         mod = math.floor((stat_cha - 10)/2)
+                                if int(bonus) != 0:
+                                        mod += int(bonus)
                                 if mod > modifier:
                                         modifier = mod
                 if modifier == -100:
@@ -853,6 +896,8 @@ def main():
         parser.add_argument('characterurls', nargs="*", type=str, help="D&D Beyond Character URL or JSON file")
         parser.add_argument('--campaign',dest="campaign",action='store', default=None, nargs=1,help="Load all characters that share a campaign with this one (takes a URL or a JSON file)")
         parser.add_argument('--campaign-file',dest="campaignfile",action='store', default=None, nargs=1,help="Load all characters that are found in a campaign html file")
+        parser.add_argument('--noimg',dest="noimg",action='store_true',help="Exclude Avatars")
+        global args
         args = parser.parse_args()      
 
         tempdir = tempfile.mkdtemp(prefix="ddbtoxml_")
@@ -871,6 +916,8 @@ def main():
                         charjson = getJSON(args.campaign[0])
                 if "character" in charjson:
                         character = charjson["character"]
+                elif "data" in charjson:
+                        character = charjson['data']
                 else:
                         character = charjson
                 if "campaign" not in character or character["campaign"] is None:
@@ -916,6 +963,8 @@ def main():
                                 charjson = json.loads(sys.stdin.read())
                         if "character" in charjson:
                                 character = charjson["character"]
+                        elif "data" in charjson:
+                                character = charjson['data']
                         else:
                                 character = charjson
                 else:
@@ -924,7 +973,7 @@ def main():
                         genXML(character,compendium)
                         #with open(comependiumxml,mode='a',encoding='utf-8') as comependium:
                         #       comependium.write(xmloutput)
-                        if character["avatarUrl"] != "":
+                        if character["avatarUrl"] and not args.noimg:
                                 local_filename = os.path.join(playersdir,character["avatarUrl"].split('/')[-1])
                                 time.sleep(random.random()*2)
                                 r = requests.get(character["avatarUrl"], stream=True)
