@@ -62,6 +62,9 @@ def genXML(character,compendium):
         slug.text = "{}".format(slugify(character["name"]))
         ddb = ET.SubElement(player, 'ddb')
         ddb.text = "{}".format(character["id"])
+        hitpoints = character["baseHitPoints"]
+        if character["preferences"]["hitPointType"] == 1:
+                hitpoints = 0
         cclass = ET.SubElement(player, 'class')
         cfs = {}
         classRE = re.compile(r'{{\(?(scalevalue|classlevel)(/([0-9]+)\)@round(up|down))?(#(un)?signed)?}}')
@@ -111,8 +114,13 @@ def genXML(character,compendium):
                                                 return cf['levelScale']['description']
                                         acfs.append( { 'name': cf_def['name'], 'text': classRE.sub(replDDBScale,cftext), 'order': cf_def['displayOrder'] })
                         level += acclass["level"]
+                        if character["preferences"]["hitPointType"] == 1:
+                                if acclass["isStartingClass"]:
+                                        hitpoints += acclass["definition"]["hitDice"] + ((acclass["level"]-1)*((acclass["definition"]["hitDice"]/2)+1))
+                                else:
+                                        hitpoints += acclass["level"]*((acclass["definition"]["hitDice"]/2)+1)
                         allclasses.append("{} {}".format(acclass["definition"]["name"],acclass["level"]))
-                        cclass.text = '/'.join(allclasses)
+                cclass.text = '/'.join(allclasses)
         else:
                 acclass = character["classes"][0]
                 characterclass = character["classes"][0]["definition"]["name"]
@@ -162,6 +170,8 @@ def genXML(character,compendium):
                                         return cf['levelScale']['description']
                                 acfs.append( { 'name': cf_def['name'], 'text': classRE.sub(replDDBScale,cftext), 'order': cf_def['displayOrder'] })
                 level = character["classes"][0]["level"]
+                if character["preferences"]["hitPointType"] == 1:
+                        hitpoints += character["classes"][0]["definition"]["hitDice"] + ((character["classes"][0]["level"]-1)*((character["classes"][0]["definition"]["hitDice"]/2)+1))
                 cclass.text = "{} {}".format(characterclass,level)
         if character["alignmentId"]:
                 if character["alignmentId"] == 1:
@@ -193,7 +203,6 @@ def genXML(character,compendium):
         clevel.text = "{}".format(level)
         xp = ET.SubElement(player, 'xp')
         xp.text = "{}".format(character["currentXp"])
-        hitpoints = character["baseHitPoints"]
         armorclass = 0
         basearmor = 10
         hasarmor = None
@@ -204,6 +213,12 @@ def genXML(character,compendium):
         stat_wis = character["stats"][4]["value"]
         stat_cha = character["stats"][5]["value"]
         race = character["race"]["fullName"]
+        initiative = 0
+        initAddStr = False
+        initAddCon = False
+        initAddInt = False
+        initAddWis = False
+        initAddCha = False
         racefeatures = []
         for rf in character["race"]["racialTraits"]:
                 rf_def = rf['definition']
@@ -274,7 +289,7 @@ def genXML(character,compendium):
         hitpoints += math.floor((stat_con - 10)/2)*level
         if character["overrideHitPoints"]:
                 hitpoints = character["overrideHitPoints"]
-        initiative = math.floor((stat_dex - 10)/2)
+        initiative += math.floor((stat_dex - 10)/2)
         equipment = []
         for equip in character["inventory"]:
 #               for i in range(equip["quantity"]):
@@ -441,7 +456,7 @@ def genXML(character,compendium):
                                 skill["Persuasion"] = math.floor((stat_cha - 10)/2) + bonus
                                 skillprof["Persuasion"] = "half"
                         if modifier["subType"].lower() == "initiative":
-                                initiative = math.floor((stat_dex - 10)/2) + bonus
+                                initiative += bonus
                         if modifier["subType"].lower() == "strength-saving-throws":
                                 str_save = math.floor((stat_str - 10)/2) + bonus
                         if modifier["subType"].lower() == "dexterity-saving-throws":
@@ -523,7 +538,7 @@ def genXML(character,compendium):
                                 skill["Persuasion"] = math.floor((stat_cha - 10)/2) + bonus
                                 skillprof["Persuasion"] = "full"
                         if modifier["subType"].lower() == "initiative":
-                                initiative = math.floor((stat_dex - 10)/2) + bonus
+                                initiative += bonus
                         if modifier["subType"].lower() == "strength-saving-throws":
                                 str_save = math.floor((stat_str - 10)/2) + bonus
                         if modifier["subType"].lower() == "dexterity-saving-throws":
@@ -605,7 +620,7 @@ def genXML(character,compendium):
                                 skill["Persuasion"] = math.floor((stat_cha - 10)/2) + bonus
                                 skillprof["Persuasion"] = "expert"
                         if modifier["subType"].lower() == "initiative":
-                                initiative = math.floor((stat_dex - 10)/2) + bonus
+                                initiative += bonus
                         if modifier["subType"].lower() == "strength-saving-throws":
                                 str_save = math.floor((stat_str - 10)/2) + bonus
                         if modifier["subType"].lower() == "dexterity-saving-throws":
@@ -662,6 +677,24 @@ def genXML(character,compendium):
                         resistence.append(modifier["friendlySubtypeName"])
                 if modifier["type"].lower() == "immunity":
                         immunity.append(modifier["friendlySubtypeName"])
+                if modifier["type"].lower() == "bonus" and modifier["subType"].lower() == "initiative":
+                        if modifier["statId"] == 1 and not initAddStr:
+                                initAddStr = True
+                                initiative += math.floor((stat_str - 10)/2)
+                        if modifier["statId"] == 3 and not initAddCon:
+                                initAddCon = True
+                                initiative += math.floor((stat_con - 10)/2)
+                        if modifier["statId"] == 4 and not initAddInt:
+                                initAddInt = True
+                                initiative += math.floor((stat_int - 10)/2)
+                        if modifier["statId"] == 5 and not initAddWis:
+                                initAddWis = True
+                                initiative += math.floor((stat_wis - 10)/2)
+                        if modifier["statId"] == 6 and not initAddCha:
+                                initAddCha = True
+                                initiative += math.floor((stat_cha - 10)/2)
+                        if modifier["value"] is not None:
+                                initiative += modifier["value"]
         spells = []
         for spell in character["spells"]["race"]:
                 spells.append(spell["definition"]["name"])
@@ -714,7 +747,7 @@ def genXML(character,compendium):
         ac = ET.SubElement(player, 'ac')
         ac.text = "{}".format(armorclass)
         hp = ET.SubElement(player, 'hp')
-        hp.text = "{}".format(hitpoints)
+        hp.text = "{:.0f}".format(hitpoints)
         speedc = ET.SubElement(player, 'speed')
         speedc.text = "{}".format(speed)
         strs = ET.SubElement(player, 'str')
