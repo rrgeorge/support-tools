@@ -14,7 +14,7 @@ import xml.etree.cElementTree as ET
 import copy
 import random
 import time
-
+from urllib.parse import urlparse
 from json import JSONDecodeError
 from slugify import slugify
 
@@ -53,7 +53,9 @@ def getJSON(theurl):
                 print ("This is not a url for D&D Beyond: {}".format(theurl))
                 return
 
-def genXML(character,compendium):       
+def genXML(character,compendium):
+        if args.verbose:
+                print("{}".format(character["id"]))
         level = 0
         player = ET.SubElement(compendium, 'player', { 'id': str(uuid.uuid5(uuid.NAMESPACE_URL,character['readonlyUrl'])) } )
         name = ET.SubElement(player, 'name')
@@ -647,6 +649,8 @@ def genXML(character,compendium):
                     continue
                 if modifier["type"].lower() == "bonus" and modifier["subType"].lower() == "armored-armor-class" and hasarmor:
                         armorclass += modifier["value"]
+                if modifier["type"].lower() == "bonus" and modifier["subType"].lower() == "dual-wield-armor-class":
+                        armorclass += modifier["value"]
                 if modifier["type"].lower() == "set" and modifier["subType"].lower() == "unarmored-armor-class" and not hasarmor:
                         if modifier["statId"] == 1 and not acAddStr:
                                 acAddStr = True
@@ -695,6 +699,18 @@ def genXML(character,compendium):
                                 initiative += math.floor((stat_cha - 10)/2)
                         if modifier["value"] is not None:
                                 initiative += modifier["value"]
+                if modifier["type"].lower() == "bonus" and modifier["subType"].lower() == "unarmored-movement" and not hasarmor:
+                        if modifier["value"] is not None:
+                                speed += modifier["value"]
+                if modifier["type"].lower() == "bonus" and modifier["subType"].lower() == "speed":
+                        if modifier["value"] is not None:
+                                speed += modifier["value"]
+                if modifier["type"].lower() == "bonus" and modifier["subType"].lower() == "speed-walking":
+                        if modifier["value"] is not None:
+                                speed += modifier["value"]
+        for customValue in character["characterValues"]:
+                if customValue["typeId"] == 2 or customValue["typeId"] == 3:
+                        armorclass += customValue["value"]        
         spells = []
         for spell in character["spells"]["race"]:
                 spells.append(spell["definition"]["name"])
@@ -778,7 +794,7 @@ def genXML(character,compendium):
         equipmentc.text = ", ".join(equipment)
         if character["avatarUrl"] and not args.noimg:
                 image = ET.SubElement(player, 'image')
-                image.text = character["avatarUrl"].split('/')[-1]
+                image.text = urlparse(character["avatarUrl"]).path.split('/')[-1]
         personalityc = ET.SubElement(player, 'personality')
         personalityc.text = "{}".format(personality)
         idealsc = ET.SubElement(player, 'ideals')
@@ -930,12 +946,16 @@ def main():
         parser.add_argument('--campaign',dest="campaign",action='store', default=None, nargs=1,help="Load all characters that share a campaign with this one (takes a URL or a JSON file)")
         parser.add_argument('--campaign-file',dest="campaignfile",action='store', default=None, nargs=1,help="Load all characters that are found in a campaign html file")
         parser.add_argument('--noimg',dest="noimg",action='store_true',help="Exclude Avatars")
+        parser.add_argument('-v',dest="verbose",action='store_true',help="Verbose")
+        parser.add_argument('-o',dest="output",action='store', default=None, nargs=1,help="File to save conversion as")
         global args
         args = parser.parse_args()      
 
         tempdir = tempfile.mkdtemp(prefix="ddbtoxml_")
-        comependiumxml = os.path.join(tempdir, "compendium.xml")
-        playersdir = os.path.join(tempdir, "players")
+        workdir = os.path.join(tempdir, "tmp")
+        os.mkdir(workdir)
+        comependiumxml = os.path.join(workdir, "compendium.xml")
+        playersdir = os.path.join(workdir, "players")
         os.mkdir(playersdir)
         #with open(comependiumxml,mode='a',encoding='utf-8') as comependium:
         #       comependium.write("<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?>\n<compendium>\n")
@@ -1007,7 +1027,7 @@ def main():
                         #with open(comependiumxml,mode='a',encoding='utf-8') as comependium:
                         #       comependium.write(xmloutput)
                         if character["avatarUrl"] and not args.noimg:
-                                local_filename = os.path.join(playersdir,character["avatarUrl"].split('/')[-1])
+                                local_filename = os.path.join(playersdir,urlparse(character["avatarUrl"]).path.split('/')[-1])
                                 time.sleep(random.random()*2)
                                 r = requests.get(character["avatarUrl"], stream=True)
                                 if r.status_code == 200:
@@ -1044,14 +1064,18 @@ def main():
         tree.write(comependiumxml,xml_declaration=True, short_empty_elements=False,encoding='utf-8')
 
 
-        zipfile = shutil.make_archive("ddbxml","zip",tempdir)
-        os.rename(zipfile,os.path.join(os.getcwd(),"ddbxml.compendium"))
-        zipfile = os.path.join(os.getcwd(),"ddbxml.compendium")
+        zipfile = shutil.make_archive(os.path.join(tempdir,"ddbxml"),"zip",workdir)
+        if args.output and args.output[0] == '-':
+                sys.stdout.buffer.write(open(zipfile,'rb').read())
+        elif args.output:
+                zipfile = shutil.copy(zipfile,args.output[0])
+        else:
+                zipfile = shutil.copy(zipfile,os.path.join(os.getcwd(),"ddbxml.compendium"))
         try:
                 import console
                 console.open_in (zipfile)
         except ImportError:
-                print(zipfile)
+                pass
 
         try:
                 shutil.rmtree(tempdir)
