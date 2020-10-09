@@ -91,7 +91,7 @@ def genXML(character,compendium):
                                                                 character['infusions'] = infusionjson['data']
                                         for cmod in character['modifiers']['class']:
                                                 if cmod['componentId'] == cf_def['id']:
-                                                        if cmod['type'] == 'set' and cmod['subType'] == 'subclass':
+                                                        if cmod['type'] == 'set' and cmod['subType'] == 'subclass' and acclass['subclassDefinition']:
                                                                 cfmods.append(acclass['subclassDefinition']['name'])
                                                         elif cmod['subType'] not in ['thieves-cant','ability-checks','initiative']:
                                                                 cfmods.append(cmod["friendlySubtypeName"])
@@ -308,7 +308,7 @@ def genXML(character,compendium):
                         if equipparts[1].startswith('+'):
                                 if equipparts[0].lower().endswith("leather") or equipparts[0].lower().endswith("padded") or equipparts[0].lower().endswith("plate") or equipparts[0].lower().endswith("hide"):
                                         equipparts[0] += " Armor"
-                                equipname = equipparts[0] + " " + equipparts[1]
+                                equipname = equipparts[1] + " " + equipparts[0]
                         else:
                                 if equipparts[1].endswith(" (50 feet)"):
                                         equipname = equipparts[1][:-10] + " " + equipparts[0] + " (50 feet)"
@@ -318,6 +318,8 @@ def genXML(character,compendium):
                 if m:
                         equipname = "Potion of {} Healing".format(m.group(1))
                 equipname = re.sub(r'(Arrow|Bolt|Needle|Bullet)s(.*)(?<!\([0-9]{2}\))$',r'\1\2',equipname)
+                equipname = re.sub(r'[‘’]','\'',equipname)
+                equipname = re.sub(r'[“”]','\"',equipname)
                 if "armor" == equip["definition"]["filterType"].lower():
                         if equipname.lower().endswith("leather") or equipname.lower().endswith("padded") or equipname.lower().endswith("plate") or equipname.lower().endswith("hide"):
                                 equipment.append(equipname + " Armor")
@@ -379,7 +381,7 @@ def genXML(character,compendium):
         enabled = ET.SubElement(light, 'enabled')
         enabled.text = "YES"
         radiusmin = ET.SubElement(light, 'radiusMin')
-        radiusmin.text = "1"
+        radiusmin.text = "-1"
         radiusmax = ET.SubElement(light, 'radiusMax')
         radiusmax.text = "0"
         color = ET.SubElement(light, 'color')
@@ -785,7 +787,7 @@ def genXML(character,compendium):
         passive = ET.SubElement(player, 'passive')
         passive.text = "{}".format(skill["Perception"]+10)
         spellsc = ET.SubElement(player, 'spells')
-        spellsc.text = ", ".join(spells)
+        spellsc.text = ", ".join([re.sub(r'[‘’]','\'',s) for s in spells])
         sensesc = ET.SubElement(player, 'senses')
         sensesc.text = ", ".join(senses)
         languagesc = ET.SubElement(player, 'languages')
