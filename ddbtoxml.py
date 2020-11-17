@@ -715,16 +715,21 @@ def genXML(character,compendium):
                         armorclass += customValue["value"]        
         spells = []
         for spell in character["spells"]["race"]:
-                spells.append(spell["definition"]["name"])
+                if spell["definition"]:
+                        spells.append(spell["definition"]["name"])
         for spell in character["spells"]["class"]:
-                spells.append(spell["definition"]["name"])
+                if spell["definition"]:
+                        spells.append(spell["definition"]["name"])
         for spell in character["spells"]["item"]:
-                spells.append(spell["definition"]["name"])
+                if spell["definition"]:
+                        spells.append(spell["definition"]["name"])
         for spell in character["spells"]["feat"]:
-                spells.append(spell["definition"]["name"])
+                if spell["definition"]:
+                        spells.append(spell["definition"]["name"])
         for classsp in character["classSpells"]:
                 for spell in classsp["spells"]:
-                        spells.append(spell["definition"]["name"])
+                        if spell["definition"]:
+                                spells.append(spell["definition"]["name"])
         party = ""
         if "campaign" in character and character["campaign"] is not None:
                 party = character["campaign"]["name"]
